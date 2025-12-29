@@ -1,17 +1,9 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-
     const target = b.standardTargetOptions(.{}); // El target a compilar
 
     const optimize = b.standardOptimizeOption(.{}); // Opciones de optimización
-
-    // Módulo principal del proyecto, definido en src/root.zig
-    const mod = b.addModule("pong_zig", .{
-        .root_source_file = b.path("src/root.zig"),
-
-        .target = target,
-    });
 
     // dependencia de raylib-zig, explicita en build.zig.zon
     const raylib_dep = b.dependency("raylib_zig", .{
@@ -24,6 +16,15 @@ pub fn build(b: *std.Build) void {
     const raygui = raylib_dep.module("raygui"); // raygui module
     const raylib_artifact = raylib_dep.artifact("raylib"); // raylib C library
 
+    // Módulo principal del proyecto, definido en src/root.zig
+    const mod = b.addModule("pong_zig", .{
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .imports = &.{
+            .{ .name = "raylib", .module = raylib },
+            .{ .name = "raygui", .module = raygui },
+        },
+    });
 
     // defino exe que compila el proyecto
     const exe = b.addExecutable(.{
@@ -48,7 +49,6 @@ pub fn build(b: *std.Build) void {
 
     // instalo exe en zig-out/bin
     b.installArtifact(exe);
-
 
     // -- EXTRA --
 
@@ -76,7 +76,6 @@ pub fn build(b: *std.Build) void {
     // Comando para correr los tests del modulo principal (src/root.zig)
     const run_mod_tests = b.addRunArtifact(mod_tests);
 
-
     // Comando para correr los tests del exe (src/main.zig)
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
@@ -91,5 +90,4 @@ pub fn build(b: *std.Build) void {
     // El step "test" depende de correr los tests del modulo principal y del exe
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
-
 }

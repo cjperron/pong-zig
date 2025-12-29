@@ -1,23 +1,46 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
+const rl = @import("raylib");
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+pub const GameState = struct {
+    // Define the game state here
+    // For example, player positions, scores, etc.
+};
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
+const Resolution = struct {
+    width: i32,
+    height: i32,
+};
 
-    try stdout.flush(); // Don't forget to flush!
-}
+pub const DisplayConfig = struct {
+    res: Resolution,
+    title: []const u8,
+    background_color: rl.Color,
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+    pub fn init(width: u32, height: u32, title: []const u8, background_color: rl.Color) DisplayConfig {
+        return DisplayConfig{
+            .res = Resolution{
+                .width = width,
+                .height = height,
+            },
+            .title = title,
+            .background_color = background_color,
+        };
+    }
 
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
-}
+    pub fn default() DisplayConfig {
+        return DisplayConfig{
+            .res = Resolution{
+                .width = 1280,
+                .height = 720,
+            },
+            .title = "Pong - Main Menu",
+            .background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }, // default black theme.
+        };
+    }
+
+    pub fn load() !DisplayConfig {
+        // Placeholder for loading configuration from a file or other source
+        return DisplayConfig.default();
+    }
+};
