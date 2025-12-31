@@ -2,6 +2,12 @@
 const std = @import("std");
 const rl = @import("raylib");
 
+pub const widgets = @import("widgets.zig");
+
+pub const game = struct {
+    pub const sim = @import("game/sim.zig");
+};
+
 pub const GameState = struct {
     // Define the game state here
     // For example, player positions, scores, etc.

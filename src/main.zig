@@ -5,11 +5,8 @@ const rl = @import("raylib");
 var displayConfig: pong_zig.DisplayConfig = undefined;
 
 pub fn main() anyerror!void {
-    // Prints to stderr, ignoring potential errors.
-    // std.debug.print("Pong en LAN!\n", .{});
     // Initialization
     //--------------------------------------------------------------------------------------
-
     displayConfig = try pong_zig.DisplayConfig.load();
 
     const screenWidth = displayConfig.res.width;
@@ -25,11 +22,16 @@ pub fn main() anyerror!void {
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
-        //----------------------------------------------------------------------------------
-        // TODO: Update your variables here
-        //----------------------------------------------------------------------------------
+        update_main_menu();
+        // Draw
         draw_main_menu();
+
+
     }
+}
+
+fn update_main_menu() void {
+
 }
 
 fn draw_main_menu() void {
