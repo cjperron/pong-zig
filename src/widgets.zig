@@ -36,38 +36,44 @@ pub const Widget = union(enum) {
     }
 
     pub fn initButton(options: struct {
-        label: [:0]const u8,
-        font_size: i32,
-        color: rl.Color,
-        bg_color: rl.Color,
-        x: i32,
-        y: i32,
-        width: i32,
-        height: i32,
-        action: *const fn () void,
+        label: [:0]const u8 = "Default label",
+        font_size: i32 = 20,
+        color: rl.Color = .white,
+        bg_color: rl.Color = .black,
+        x: i32 = 0,
+        y: i32 = 0,
+        action: ?*const fn () void = null,
     }) Widget {
-        return Widget{ .button = Button{
+        return Widget{ .button = Button.init(.{
             .label = options.label,
             .font_size = options.font_size,
             .color = options.color,
             .bg_color = options.bg_color,
             .x = options.x,
             .y = options.y,
-            .width = options.width,
-            .height = options.height,
             .action = options.action,
-        } };
+        }) };
     }
 
     pub fn initMenuSelection(options: struct {
         buttons: []Button,
+        x: i32,
+        y: i32,
+        spacing: i32,
         selected_index: usize = 0,
+        orientation: Orientation = .Vertical,
     }) Widget {
-        return Widget{ .menu_selection = MenuSelection{
+        return Widget{ .menu_selection = MenuSelection.init(.{
             .buttons = options.buttons,
             .selected_index = options.selected_index,
-        } };
+            .x = options.x,
+            .y = options.y,
+            .spacing = options.spacing,
+            .orientation = options.orientation,
+        }) };
     }
+
+    // agregar nuevos inits de los distintos tipos de widgets.
 
     pub fn draw(self: @This()) void {
         switch (self) {
@@ -75,6 +81,7 @@ pub const Widget = union(enum) {
             .underlined_text => |ut| ut.draw(),
             .button => |b| b.draw(),
             .menu_selection => |ms| ms.draw(),
+            // agregar nuevos widgets
         }
     }
 
@@ -82,7 +89,7 @@ pub const Widget = union(enum) {
         switch (self.*) {
             .text => |*t| t.update(),
             .underlined_text => |*ut| ut.update(),
-            .button => {},
+            .button => |*b| b.update(),
             .menu_selection => |*ms| ms.update(),
         }
     }
@@ -115,7 +122,7 @@ pub const Text = struct {
         return Text{ .x = options.x, .y = options.y, .text = options.text, .font_size = options.font_size, .color = options.color, .update_condition = options.update_condition, .update_action = options.update_action };
     }
 
-    pub fn update(self: *@This()) void {
+    pub fn update(self: *Text) void {
         // Placeholder for update logic if needed in the future
         if (self.update_condition) |condition| {
             if (condition()) {
@@ -126,7 +133,7 @@ pub const Text = struct {
         }
     }
 
-    pub fn draw(self: @This()) void {
+    pub fn draw(self: *const Text) void {
         rl.drawText(self.text, self.x, self.y, self.font_size, self.color);
     }
 };
@@ -139,7 +146,7 @@ pub const UnderlinedText = struct {
         return UnderlinedText{ .inner_text = options.inner_text, .underline_size = options.underline_size };
     }
 
-    pub fn draw(self: UnderlinedText) void {
+    pub fn draw(self: *const UnderlinedText) void {
         self.inner_text.draw();
         const text_width = rl.measureText(self.inner_text.text, self.inner_text.font_size);
         const offset = @max(2, @divTrunc(self.inner_text.font_size, 20)); // Muy cerca, proporcional
@@ -162,10 +169,34 @@ pub const Button = struct {
     y: i32,
     width: i32,
     height: i32,
+    highlight_color: rl.Color = .white,
+    highlighted: bool = false,
 
-    action: *const fn () void,
+    action: ?*const fn () void,
 
-    pub fn isClicked(self: Button) bool {
+    pub fn init(options: struct {
+        label: [:0]const u8 = "Default label",
+        font_size: i32 = 20,
+        color: rl.Color = .white,
+        bg_color: rl.Color = .black,
+        x: i32 = 0,
+        y: i32 = 0,
+        action: ?*const fn () void = null,
+    }) Button {
+        return Button{
+            .label = options.label,
+            .font_size = options.font_size,
+            .color = options.color,
+            .bg_color = options.bg_color,
+            .x = options.x,
+            .y = options.y,
+            .width = rl.measureText(options.label, options.font_size),
+            .height = options.font_size,
+            .action = options.action,
+        };
+    }
+
+    pub fn isClicked(self: *const Button) bool {
         const mouseX = rl.getMouseX();
         const mouseY = rl.getMouseY();
         const mousePressed = rl.isMouseButtonPressed(rl.MouseButton.left);
@@ -175,7 +206,15 @@ pub const Button = struct {
             (mouseY >= self.y) and (mouseY <= self.y + self.height);
     }
 
-    pub fn draw(self: Button) void {
+    pub fn isHovered(self: *const Button) bool {
+        const mouseX = rl.getMouseX();
+        const mouseY = rl.getMouseY();
+
+        return (mouseX >= self.x) and (mouseX <= self.x + self.width) and
+            (mouseY >= self.y) and (mouseY <= self.y + self.height);
+    }
+
+    pub fn draw(self: *const Button) void {
         // Draw button background
         rl.drawRectangle(self.x, self.y, self.width, self.height, self.bg_color);
 
@@ -186,24 +225,103 @@ pub const Button = struct {
 
         // Draw button label
         rl.drawText(self.label, textX, textY, self.font_size, self.color);
+        if (self.highlighted) {
+            const text_width = rl.measureText(self.label, self.font_size);
+            const offset = @max(2, @divTrunc(self.font_size, 20));
+            const line_y = self.y + self.height + offset;
+            const underline_size = @max(2, @divTrunc(self.font_size, 10));
+            rl.drawRectangle(self.x, line_y, text_width, underline_size, self.highlight_color);
+        }
     }
+
+    pub fn update(self: *Button) void {
+        if (self.isClicked()) {
+            if (self.action) |action| {
+                action();
+            }
+        }
+        if (self.isHovered()) {
+            self.highlight();
+        } else {
+            self.unhighlight();
+        }
+    }
+
+    pub fn toggleHighlight(self: *Button) void {
+        self.highlighted = !self.highlighted;
+    }
+
+    // le pone un subrayado al boton
+    pub fn highlight(self: *Button) void {
+        self.highlighted = true;
+    }
+
+    pub fn unhighlight(self: *Button) void {
+        self.highlighted = false;
+    }
+};
+
+pub const Orientation = enum {
+	Vertical,
+	Horizontal,
 };
 
 /// Ayudita para tener un array de botones con layout vertical u horizontal.
 pub const MenuSelection = struct {
     buttons: []Button,
     selected_index: usize,
+    x: i32,
+    y: i32,
+    spacing: i32,
+    orientation: Orientation,
 
-    pub fn update(self: *MenuSelection) void {
-        for (self.buttons, 0..) |*button, index| {
-            if (button.isClicked()) {
-                self.selected_index = index;
-                button.action();
+    pub fn init(options: struct {
+        buttons: []Button,
+        x: i32,
+        y: i32,
+        spacing: i32,
+        selected_index: usize = 0,
+        orientation: Orientation = .Vertical,
+    }) MenuSelection {
+        // Posicionar automáticamente los botones en base a (x, y) del menú
+        var current_y = options.y;
+        var current_x = options.x;
+
+        for (options.buttons) |*button| {
+            button.x = current_x;
+            button.y = current_y;
+
+            switch (options.orientation) {
+                .Vertical => current_y += button.height + options.spacing,
+                .Horizontal => current_x += button.width + options.spacing,
             }
         }
+
+        return MenuSelection{
+            .buttons = options.buttons,
+            .selected_index = options.selected_index,
+            .x = options.x,
+            .y = options.y,
+            .spacing = options.spacing,
+            .orientation = options.orientation,
+        };
     }
 
-    pub fn draw(self: MenuSelection) void {
+    pub fn update(self: *MenuSelection) void {
+        // for (self.buttons, 0..) |*button, index| {
+        //     if (button.isClicked()) {
+        //         if (button.action) |action| {
+        //             self.selected_index = index;
+        //             action();
+        //         }
+        //     }
+        // }
+        for (self.buttons) |*button| {
+			button.update();
+		}
+    }
+
+    pub fn draw(self: *const MenuSelection) void {
         for (self.buttons) |button| {
             button.draw();
         }

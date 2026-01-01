@@ -9,6 +9,9 @@ var displayConfig: pong_zig.DisplayConfig = undefined;
 
 var screenWidth: i32 = undefined;
 var screenHeight: i32 = undefined;
+const background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
+
+var should_exit: bool = false;
 
 pub fn main() anyerror!void {
     // Initialization
@@ -18,11 +21,13 @@ pub fn main() anyerror!void {
     screenWidth = displayConfig.res.width;
     screenHeight = displayConfig.res.height;
 
-    rl.initWindow(screenWidth, screenHeight, "Pong - Menu Principal");
+    rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
 
     defer rl.closeWindow(); // Close window and OpenGL context
 
-    rl.setTargetFPS(60); // Set our game to run at 60 frames-per-second
+    const display_refresh_rate = rl.getMonitorRefreshRate(rl.getCurrentMonitor());
+
+    rl.setTargetFPS(display_refresh_rate); // Set our game to run at 120 frames-per-second
     //--------------------------------------------------------------------------------------
 
     // init allocator
@@ -34,38 +39,57 @@ pub fn main() anyerror!void {
     var main_menu_widgets: std.ArrayList(Widget) = try std.ArrayList(Widget).initCapacity(alloc, 16);
     defer main_menu_widgets.deinit(alloc);
 
-
     // widgets
-    const title_text = "PONG";
-    const title_font_size = 120;
-    const title_width = rl.measureText(title_text, title_font_size);
-    const title_x = @divTrunc(screenWidth - title_width, 2);
-    const title_y = 150;
-
     const titulo: Widget = Widget.initUnderlinedText(.{ .inner_text = Text.init(.{
-        .text = title_text,
-        .x = title_x,
-        .y = title_y,
-        .font_size = title_font_size,
-        .color = rl.Color.white,
-        .update_condition = &struct {
-            pub fn update_c() bool {
-                return true;
-            }
-        }.update_c,
-        .update_action = &struct {
-            pub fn update_a(this: *Text) void {
-                this.*.y = @mod((this.*.y + 1), screenHeight - 120);
-            }
-        }.update_a,
-    })
-    // underline defaulted
+        .text = "PONG",
+        .x = @divTrunc(screenWidth - rl.measureText("PONG", 120), 2), // center text
+        .y = 150,
+        .font_size = 120,
+    }) });
+
+    // Botones
+    const jugar_btn: Widget = Widget.initButton(.{
+        .label = "Jugar",
+        .font_size = 40,
+        .bg_color = background_color,
+    });
+
+    const options_btn: Widget = Widget.initButton(.{
+        .label = "Opciones",
+        .font_size = 40,
+        .bg_color = background_color,
+    });
+
+
+    const salir_btn: Widget = Widget.initButton(.{
+		.label = "Salir",
+		.font_size = 40,
+		.bg_color = background_color,
+		.action = &struct {pub fn f() void {
+			should_exit = true;
+		}}.f,
+	});
+
+    var menu_buttons = [_]pong_zig.widgets.Button{
+        jugar_btn.button,
+        options_btn.button,
+        salir_btn.button,
+    };
+
+    // Menu de selección
+    const menu_selection_widget: Widget = Widget.initMenuSelection(.{
+        .buttons = menu_buttons[0..],
+        .selected_index = 0,
+        .x = @divTrunc(screenWidth - 200, 2),
+        .y = 400,
+        .spacing = 20,
     });
 
     try main_menu_widgets.append(alloc, titulo);
+    try main_menu_widgets.append(alloc, menu_selection_widget);
 
     // Main game loop
-    while (!rl.windowShouldClose()) { // Detect window close button or ESC key
+    while (!rl.windowShouldClose() ^ should_exit) { // Cierro la ventana, o por raylib, o por mi.
         // Update
         update_main_menu(main_menu_widgets.items);
         // Draw
@@ -80,7 +104,6 @@ fn update_main_menu(w: []Widget) void {
 }
 
 fn draw_main_menu(w: []Widget) void {
-    const background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 };
     // const screenWidth = displayConfig.res.width;
     // const screenHeight = displayConfig.res.height;
     // Draw
