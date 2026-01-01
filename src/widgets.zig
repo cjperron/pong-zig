@@ -2,6 +2,34 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
+// ===== Closure genérica - Un solo tipo para todo =====
+
+/// Closure explícita: función con contexto capturado
+pub const Callback = struct {
+    ptr: *anyopaque,
+    callFn: *const fn (*anyopaque) void,
+
+    pub inline fn call(self: Callback) void {
+        self.callFn(self.ptr);
+    }
+
+    /// Crea callback desde cualquier struct con método `call`
+    pub fn init(closure: anytype) Callback {
+        const T = @TypeOf(closure.*);
+        if (!@hasDecl(T, "call")) {
+            @compileError("Closure must have a 'call' method");
+        }
+        const wrapper = struct {
+            fn wrap(ptr: *anyopaque) void {
+                const self: @TypeOf(closure) = @ptrCast(@alignCast(ptr));
+                self.call();
+            }
+        };
+        return .{ .ptr = closure, .callFn = wrapper.wrap };
+    }
+};
+// ===== Widgets =====
+
 pub const Widget = union(enum) {
     text: Text,
     underlined_text: UnderlinedText,
@@ -14,8 +42,7 @@ pub const Widget = union(enum) {
         text: [:0]const u8,
         font_size: i32 = 20,
         color: rl.Color = rl.Color.white,
-        update_condition: ?*const fn () bool = null,
-        update_action: ?*const fn (*Text) void = null,
+        on_update: ?Callback = null,
     }) Widget {
         return Widget{ .text = Text.init(.{
             .x = options.x,
@@ -23,8 +50,7 @@ pub const Widget = union(enum) {
             .text = options.text,
             .font_size = options.font_size,
             .color = options.color,
-            .update_condition = options.update_condition,
-            .update_action = options.update_action,
+            .on_update = options.on_update,
         }) };
     }
 
@@ -42,7 +68,7 @@ pub const Widget = union(enum) {
         bg_color: rl.Color = .black,
         x: i32 = 0,
         y: i32 = 0,
-        action: ?*const fn () void = null,
+        on_click: ?Callback = null,
     }) Widget {
         return Widget{ .button = Button.init(.{
             .label = options.label,
@@ -51,7 +77,7 @@ pub const Widget = union(enum) {
             .bg_color = options.bg_color,
             .x = options.x,
             .y = options.y,
-            .action = options.action,
+            .on_click = options.on_click,
         }) };
     }
 
@@ -73,15 +99,12 @@ pub const Widget = union(enum) {
         }) };
     }
 
-    // agregar nuevos inits de los distintos tipos de widgets.
-
     pub fn draw(self: @This()) void {
         switch (self) {
             .text => |t| t.draw(),
             .underlined_text => |ut| ut.draw(),
             .button => |b| b.draw(),
             .menu_selection => |ms| ms.draw(),
-            // agregar nuevos widgets
         }
     }
 
@@ -101,9 +124,7 @@ pub const Text = struct {
     text: [:0]const u8,
     font_size: i32,
     color: rl.Color,
-    // Logica de actualizacion
-    update_condition: ?*const fn () bool,
-    update_action: ?*const fn (*@This()) void,
+    on_update: ?Callback,
 
     pub fn init(
         options: struct {
@@ -112,24 +133,22 @@ pub const Text = struct {
             text: [:0]const u8,
             font_size: i32 = 20,
             color: rl.Color = rl.Color.white,
-            // En el caso que se tenga que actualizar el texto, hay que manejar con logica custom.
-            update_condition: ?*const fn () bool = null, // Si el texto se actualiza, esto NO es null
-            // Si actualizamos el widget, tenemos que sobrescribirlo.
-            // Naturalmente, para lograrlo de la forma mas clean, lo mas sencillo es modificarla por referencia, y darle el poder al usuario de decir que modificar.
-            update_action: ?*const fn (*Text) void = null,
+            on_update: ?Callback = null,
         },
     ) Text {
-        return Text{ .x = options.x, .y = options.y, .text = options.text, .font_size = options.font_size, .color = options.color, .update_condition = options.update_condition, .update_action = options.update_action };
+        return Text{
+            .x = options.x,
+            .y = options.y,
+            .text = options.text,
+            .font_size = options.font_size,
+            .color = options.color,
+            .on_update = options.on_update,
+        };
     }
 
     pub fn update(self: *Text) void {
-        // Placeholder for update logic if needed in the future
-        if (self.update_condition) |condition| {
-            if (condition()) {
-                if (self.update_action) |action| {
-                    action(self);
-                }
-            }
+        if (self.on_update) |callback| {
+            callback.call();
         }
     }
 
@@ -149,14 +168,13 @@ pub const UnderlinedText = struct {
     pub fn draw(self: *const UnderlinedText) void {
         self.inner_text.draw();
         const text_width = rl.measureText(self.inner_text.text, self.inner_text.font_size);
-        const offset = @max(2, @divTrunc(self.inner_text.font_size, 20)); // Muy cerca, proporcional
+        const offset = @max(2, @divTrunc(self.inner_text.font_size, 20));
         const line_y = self.inner_text.y + self.inner_text.font_size - @divTrunc(self.inner_text.font_size, 5) + offset;
         rl.drawRectangle(self.inner_text.x, line_y, text_width, self.underline_size, self.inner_text.color);
     }
 
     pub fn update(self: *UnderlinedText) void {
         self.inner_text.update();
-        // TODO: if inner_text updateable, update line width along with color.
     }
 };
 
@@ -172,7 +190,7 @@ pub const Button = struct {
     highlight_color: rl.Color = .white,
     highlighted: bool = false,
 
-    action: ?*const fn () void,
+    on_click: ?Callback,
 
     pub fn init(options: struct {
         label: [:0]const u8 = "Default label",
@@ -181,7 +199,7 @@ pub const Button = struct {
         bg_color: rl.Color = .black,
         x: i32 = 0,
         y: i32 = 0,
-        action: ?*const fn () void = null,
+        on_click: ?Callback = null,
     }) Button {
         return Button{
             .label = options.label,
@@ -192,7 +210,7 @@ pub const Button = struct {
             .y = options.y,
             .width = rl.measureText(options.label, options.font_size),
             .height = options.font_size,
-            .action = options.action,
+            .on_click = options.on_click,
         };
     }
 
@@ -215,15 +233,12 @@ pub const Button = struct {
     }
 
     pub fn draw(self: *const Button) void {
-        // Draw button background
         rl.drawRectangle(self.x, self.y, self.width, self.height, self.bg_color);
 
-        // Calculate text position to center it in the button
         const textWidth = rl.measureText(self.label, self.font_size);
         const textX = self.x + @divTrunc((self.width - textWidth), 2);
         const textY = self.y + @divTrunc((self.height - self.font_size), 2);
 
-        // Draw button label
         rl.drawText(self.label, textX, textY, self.font_size, self.color);
         if (self.highlighted) {
             const text_width = rl.measureText(self.label, self.font_size);
@@ -236,8 +251,8 @@ pub const Button = struct {
 
     pub fn update(self: *Button) void {
         if (self.isClicked()) {
-            if (self.action) |action| {
-                action();
+            if (self.on_click) |callback| {
+                callback.call();
             }
         }
         if (self.isHovered()) {
@@ -251,7 +266,6 @@ pub const Button = struct {
         self.highlighted = !self.highlighted;
     }
 
-    // le pone un subrayado al boton
     pub fn highlight(self: *Button) void {
         self.highlighted = true;
     }
@@ -266,7 +280,6 @@ pub const Orientation = enum {
 	Horizontal,
 };
 
-/// Ayudita para tener un array de botones con layout vertical u horizontal.
 pub const MenuSelection = struct {
     buttons: []Button,
     selected_index: usize,
@@ -283,7 +296,6 @@ pub const MenuSelection = struct {
         selected_index: usize = 0,
         orientation: Orientation = .Vertical,
     }) MenuSelection {
-        // Posicionar automáticamente los botones en base a (x, y) del menú
         var current_y = options.y;
         var current_x = options.x;
 
@@ -308,14 +320,6 @@ pub const MenuSelection = struct {
     }
 
     pub fn update(self: *MenuSelection) void {
-        // for (self.buttons, 0..) |*button, index| {
-        //     if (button.isClicked()) {
-        //         if (button.action) |action| {
-        //             self.selected_index = index;
-        //             action();
-        //         }
-        //     }
-        // }
         for (self.buttons) |*button| {
 			button.update();
 		}

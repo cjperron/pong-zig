@@ -4,14 +4,13 @@ const pong_zig = @import("pong_zig");
 
 const Widget = pong_zig.widgets.Widget;
 const Text = pong_zig.widgets.Text;
+const Callback = pong_zig.widgets.Callback;
 
-var displayConfig: pong_zig.DisplayConfig = undefined;
-
-var screenWidth: i32 = undefined;
-var screenHeight: i32 = undefined;
 const background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
 
-var should_exit: bool = false;
+var displayConfig: pong_zig.DisplayConfig = undefined;
+var screenWidth: i32 = undefined;
+var screenHeight: i32 = undefined;
 
 pub fn main() anyerror!void {
     // Initialization
@@ -40,12 +39,14 @@ pub fn main() anyerror!void {
     defer main_menu_widgets.deinit(alloc);
 
     // widgets
-    const titulo: Widget = Widget.initUnderlinedText(.{ .inner_text = Text.init(.{
-        .text = "PONG",
-        .x = @divTrunc(screenWidth - rl.measureText("PONG", 120), 2), // center text
-        .y = 150,
-        .font_size = 120,
-    }) });
+    const titulo: Widget = Widget.initUnderlinedText(.{
+        .inner_text = Text.init(.{
+            .text = "PONG",
+            .x = @divTrunc(screenWidth - rl.measureText("PONG", 120), 2), // center text
+            .y = 150,
+            .font_size = 120,
+        }),
+    });
 
     // Botones
     const jugar_btn: Widget = Widget.initButton(.{
@@ -59,16 +60,29 @@ pub fn main() anyerror!void {
         .font_size = 40,
         .bg_color = background_color,
     });
+    var should_exit: bool = false;
 
+    // Explicacion : Para crear una funcion anonima SIN heap allocs, se necesita un contexto, y una funcion miembro.
+    // Por ende, la solucion mas facil es tener un struct anonimo con una funcion call que se comporte exactamente como queremos.
+    var ctx = struct {
+        should_exit: *bool,
+        // Lista de capturas....
+        //
+        // ...
+        pub fn call(self: *@This()) void { // la closure en si
+            // Set the flag to exit the main loop
+            self.should_exit.* = true;
+        }
+    }{
+        .should_exit = &should_exit, // Inicializo a mano las capturas.
+    };
 
     const salir_btn: Widget = Widget.initButton(.{
-		.label = "Salir",
-		.font_size = 40,
-		.bg_color = background_color,
-		.action = &struct {pub fn f() void {
-			should_exit = true;
-		}}.f,
-	});
+        .label = "Salir",
+        .font_size = 40,
+        .bg_color = background_color,
+        .on_click = Callback.init(&ctx),
+    });
 
     var menu_buttons = [_]pong_zig.widgets.Button{
         jugar_btn.button,
