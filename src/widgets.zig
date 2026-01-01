@@ -1,33 +1,8 @@
 const std = @import("std");
-
 const rl = @import("raylib");
 
-// ===== Closure genérica - Un solo tipo para todo =====
+const Callback = @import("root.zig").Callback;
 
-/// Closure explícita: función con contexto capturado
-pub const Callback = struct {
-    ptr: *anyopaque,
-    callFn: *const fn (*anyopaque) void,
-
-    pub inline fn call(self: Callback) void {
-        self.callFn(self.ptr);
-    }
-
-    /// Crea callback desde cualquier struct con método `call`
-    pub fn init(closure: anytype) Callback {
-        const T = @TypeOf(closure.*);
-        if (!@hasDecl(T, "call")) {
-            @compileError("Closure must have a 'call' method");
-        }
-        const wrapper = struct {
-            fn wrap(ptr: *anyopaque) void {
-                const self: @TypeOf(closure) = @ptrCast(@alignCast(ptr));
-                self.call();
-            }
-        };
-        return .{ .ptr = closure, .callFn = wrapper.wrap };
-    }
-};
 // ===== Widgets =====
 
 pub const Widget = union(enum) {
@@ -55,10 +30,22 @@ pub const Widget = union(enum) {
     }
 
     pub fn initUnderlinedText(options: struct {
-        inner_text: Text,
+        x: i32,
+        y: i32,
+        text: [:0]const u8,
+        font_size: i32 = 20,
+        color: rl.Color = rl.Color.white,
+        on_update: ?Callback = null,
         underline_size: i32 = 5,
     }) Widget {
-        return Widget{ .underlined_text = UnderlinedText.init(.{ .inner_text = options.inner_text, .underline_size = options.underline_size }) };
+        return Widget{ .underlined_text = UnderlinedText.init(.{ .inner_text = Text.init(.{
+            .x = options.x,
+            .y = options.y,
+            .text = options.text,
+            .font_size = options.font_size,
+            .color = options.color,
+            .on_update = options.on_update,
+        }), .underline_size = options.underline_size }) };
     }
 
     pub fn initButton(options: struct {
@@ -276,8 +263,8 @@ pub const Button = struct {
 };
 
 pub const Orientation = enum {
-	Vertical,
-	Horizontal,
+    Vertical,
+    Horizontal,
 };
 
 pub const MenuSelection = struct {
@@ -321,8 +308,8 @@ pub const MenuSelection = struct {
 
     pub fn update(self: *MenuSelection) void {
         for (self.buttons) |*button| {
-			button.update();
-		}
+            button.update();
+        }
     }
 
     pub fn draw(self: *const MenuSelection) void {

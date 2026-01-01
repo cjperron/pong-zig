@@ -4,21 +4,20 @@ const pong_zig = @import("pong_zig");
 
 const Widget = pong_zig.widgets.Widget;
 const Text = pong_zig.widgets.Text;
-const Callback = pong_zig.widgets.Callback;
+const Callback = pong_zig.Callback;
 
 const background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
-
-var displayConfig: pong_zig.DisplayConfig = undefined;
-var screenWidth: i32 = undefined;
-var screenHeight: i32 = undefined;
 
 pub fn main() anyerror!void {
     // Initialization
     //--------------------------------------------------------------------------------------
-    displayConfig = try pong_zig.DisplayConfig.load();
+    const displayConfig = try pong_zig.DisplayConfig.load();
 
-    screenWidth = displayConfig.res.width;
-    screenHeight = displayConfig.res.height;
+    const screenWidth = displayConfig.res.width;
+    const screenHeight = displayConfig.res.height;
+    var should_exit: bool = false;
+
+    rl.setConfigFlags(.{ .window_hidden = true });
 
     rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
 
@@ -40,13 +39,13 @@ pub fn main() anyerror!void {
 
     // widgets
     const titulo: Widget = Widget.initUnderlinedText(.{
-        .inner_text = Text.init(.{
-            .text = "PONG",
-            .x = @divTrunc(screenWidth - rl.measureText("PONG", 120), 2), // center text
-            .y = 150,
-            .font_size = 120,
-        }),
+        .text = "PONG",
+        .x = @divTrunc(screenWidth - rl.measureText("PONG", 120), 2), // center text
+        .y = 150,
+        .font_size = 120,
     });
+
+    try main_menu_widgets.append(alloc, titulo);
 
     // Botones
     const jugar_btn: Widget = Widget.initButton(.{
@@ -60,11 +59,10 @@ pub fn main() anyerror!void {
         .font_size = 40,
         .bg_color = background_color,
     });
-    var should_exit: bool = false;
 
     // Explicacion : Para crear una funcion anonima SIN heap allocs, se necesita un contexto, y una funcion miembro.
     // Por ende, la solucion mas facil es tener un struct anonimo con una funcion call que se comporte exactamente como queremos.
-    var ctx = struct {
+    var ctx_salir_btn = struct {
         should_exit: *bool,
         // Lista de capturas....
         //
@@ -81,7 +79,7 @@ pub fn main() anyerror!void {
         .label = "Salir",
         .font_size = 40,
         .bg_color = background_color,
-        .on_click = Callback.init(&ctx),
+        .on_click = Callback.init(&ctx_salir_btn),
     });
 
     var menu_buttons = [_]pong_zig.widgets.Button{
@@ -99,8 +97,11 @@ pub fn main() anyerror!void {
         .spacing = 20,
     });
 
-    try main_menu_widgets.append(alloc, titulo);
     try main_menu_widgets.append(alloc, menu_selection_widget);
+
+    // Initial draw
+    draw_main_menu(main_menu_widgets.items);
+    rl.clearWindowState(.{ .window_hidden = true });
 
     // Main game loop
     while (!rl.windowShouldClose() ^ should_exit) { // Cierro la ventana, o por raylib, o por mi.

@@ -8,6 +8,32 @@ pub const game = struct {
     pub const sim = @import("game/sim.zig");
 };
 
+// ===== Closures genéricas =====
+
+pub const Callback = struct {
+    ptr: *anyopaque,
+    callFn: *const fn (*anyopaque) void,
+
+    pub inline fn call(self: Callback) void {
+        self.callFn(self.ptr);
+    }
+
+    /// Crea callback desde cualquier struct con método `call`
+    pub fn init(closure: anytype) Callback {
+        const T = @TypeOf(closure.*);
+        if (!@hasDecl(T, "call")) {
+            @compileError("Closure must have a 'call' method");
+        }
+        const wrapper = struct {
+            fn wrap(ptr: *anyopaque) void {
+                const self: @TypeOf(closure) = @ptrCast(@alignCast(ptr));
+                self.call();
+            }
+        };
+        return .{ .ptr = closure, .callFn = wrapper.wrap };
+    }
+};
+
 pub const GameState = struct {
     // Define the game state here
     // For example, player positions, scores, etc.
