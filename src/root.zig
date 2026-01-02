@@ -2,9 +2,15 @@
 const std = @import("std");
 const rl = @import("raylib");
 
-pub const widgets = @import("widgets.zig");
+pub const display = struct {
+	pub const widgets = @import("widgets.zig");
+	pub const scene = @import("scene.zig");
+	pub const config = @import("config.zig");
+};
 
-pub const game = struct {
+
+pub const app = struct {
+	pub const AppState = @import("app_state.zig").AppState;
     pub const sim = @import("game/sim.zig");
 };
 
@@ -13,66 +19,46 @@ pub const game = struct {
 pub const Callback = struct {
     ptr: *anyopaque,
     callFn: *const fn (*anyopaque) void,
+    deinitFn: *const fn (*anyopaque, std.mem.Allocator) void,
+    allocator: std.mem.Allocator,
 
     pub inline fn call(self: Callback) void {
         self.callFn(self.ptr);
     }
 
+    pub fn deinit(self: Callback) void {
+        self.deinitFn(self.ptr, self.allocator);
+    }
+
     /// Crea callback desde cualquier struct con método `call`
-    pub fn init(closure: anytype) Callback {
+    /// Aloca una copia del closure en el heap
+    pub fn init(allocator: std.mem.Allocator, closure: anytype) !Callback {
         const T = @TypeOf(closure.*);
         if (!@hasDecl(T, "call")) {
             @compileError("Closure must have a 'call' method");
         }
+
+        // Alocar copia en el heap
+        const heap_closure = try allocator.create(T);
+        heap_closure.* = closure.*;
+
         const wrapper = struct {
             fn wrap(ptr: *anyopaque) void {
-                const self: @TypeOf(closure) = @ptrCast(@alignCast(ptr));
+                const self: *T = @ptrCast(@alignCast(ptr));
                 self.call();
             }
+
+            fn deinitWrap(ptr: *anyopaque, alloc: std.mem.Allocator) void {
+                const self: *T = @ptrCast(@alignCast(ptr));
+                alloc.destroy(self);
+            }
         };
-        return .{ .ptr = closure, .callFn = wrapper.wrap };
-    }
-};
 
-pub const GameState = struct {
-    // Define the game state here
-    // For example, player positions, scores, etc.
-};
-
-const Resolution = struct {
-    width: i32,
-    height: i32,
-};
-
-pub const DisplayConfig = struct {
-    res: Resolution,
-    title: []const u8,
-    background_color: rl.Color,
-
-    pub fn init(width: u32, height: u32, title: []const u8, background_color: rl.Color) DisplayConfig {
-        return DisplayConfig{
-            .res = Resolution{
-                .width = width,
-                .height = height,
-            },
-            .title = title,
-            .background_color = background_color,
+        return .{
+            .ptr = heap_closure,
+            .callFn = wrapper.wrap,
+            .deinitFn = wrapper.deinitWrap,
+            .allocator = allocator,
         };
-    }
-
-    pub fn default() DisplayConfig {
-        return DisplayConfig{
-            .res = Resolution{
-                .width = 1280,
-                .height = 720,
-            },
-            .title = "Pong - Main Menu",
-            .background_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }, // default black theme.
-        };
-    }
-
-    pub fn load() !DisplayConfig {
-        // Placeholder for loading configuration from a file or other source
-        return DisplayConfig.default();
     }
 };

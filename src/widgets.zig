@@ -1,6 +1,6 @@
 const std = @import("std");
 const rl = @import("raylib");
-
+const config = @import("root.zig").display.config;
 const Callback = @import("root.zig").Callback;
 
 // ===== Widgets =====
@@ -69,7 +69,7 @@ pub const Widget = union(enum) {
     }
 
     pub fn initMenuSelection(options: struct {
-        buttons: []Button,
+        buttons: std.ArrayList(Button),
         x: i32,
         y: i32,
         spacing: i32,
@@ -101,6 +101,13 @@ pub const Widget = union(enum) {
             .underlined_text => |*ut| ut.update(),
             .button => |*b| b.update(),
             .menu_selection => |*ms| ms.update(),
+        }
+    }
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .menu_selection => |*ms| ms.deinit(allocator),
+            else => {},
         }
     }
 };
@@ -183,7 +190,7 @@ pub const Button = struct {
         label: [:0]const u8 = "Default label",
         font_size: i32 = 20,
         color: rl.Color = .white,
-        bg_color: rl.Color = .black,
+        bg_color: rl.Color = config.pong_bg_color,
         x: i32 = 0,
         y: i32 = 0,
         on_click: ?Callback = null,
@@ -268,7 +275,7 @@ pub const Orientation = enum {
 };
 
 pub const MenuSelection = struct {
-    buttons: []Button,
+    buttons: std.ArrayList(Button),
     selected_index: usize,
     x: i32,
     y: i32,
@@ -276,7 +283,7 @@ pub const MenuSelection = struct {
     orientation: Orientation,
 
     pub fn init(options: struct {
-        buttons: []Button,
+        buttons: std.ArrayList(Button),
         x: i32,
         y: i32,
         spacing: i32,
@@ -286,7 +293,7 @@ pub const MenuSelection = struct {
         var current_y = options.y;
         var current_x = options.x;
 
-        for (options.buttons) |*button| {
+        for (options.buttons.items) |*button| {
             button.x = current_x;
             button.y = current_y;
 
@@ -307,14 +314,23 @@ pub const MenuSelection = struct {
     }
 
     pub fn update(self: *MenuSelection) void {
-        for (self.buttons) |*button| {
+        for (self.buttons.items) |*button| {
             button.update();
         }
     }
 
     pub fn draw(self: *const MenuSelection) void {
-        for (self.buttons) |button| {
+        for (self.buttons.items) |button| {
             button.draw();
         }
+    }
+
+    pub fn deinit(self: *MenuSelection, allocator: std.mem.Allocator) void {
+        for (self.buttons.items) |*button| {
+            if (button.on_click) |callback| {
+                callback.deinit();
+            }
+        }
+        self.buttons.deinit(allocator);
     }
 };
