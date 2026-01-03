@@ -9,10 +9,10 @@ const rl = @import("raylib");
 pub fn main() anyerror!void {
     // Initialization
     //--------------------------------------------------------------------------------------
-    const displayConfig = pz.display.config.DisplayConfig.getInstance();
+    const app_state = pz.app.AppState.getInstanceMut();
 
-    const screenWidth = displayConfig.res.width;
-    const screenHeight = displayConfig.res.height;
+    const screenWidth = app_state.display_config.width;
+    const screenHeight = app_state.display_config.height;
 
     rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
@@ -32,17 +32,20 @@ pub fn main() anyerror!void {
     var current_scene = try pz.display.scene.Scene.init(alloc, .MainMenu, .{});
     defer current_scene.deinit(alloc);
 
-    const app_state = pz.app.AppState.getInstanceMut();
+
 
     while (!rl.windowShouldClose() ^ app_state.should_exit) { // Cierro la ventana, o por raylib, o por mi.
         // Update
-        if (current_scene.update()) |new_scene_tag| {
+        current_scene.update();
+        if (app_state.requested_scene) |new_scene_tag| {
             current_scene.deinit(alloc);
             current_scene = try pz.display.scene.Scene.init(alloc, new_scene_tag, .{});
+            app_state.current_scene = new_scene_tag;
+			app_state.requested_scene = null;
         }
         // Draw
         rl.beginDrawing();
-        rl.clearBackground(pz.display.config.pong_bg_color);
+        rl.clearBackground(pz.display.widgets.pong_bg_color);
         current_scene.draw();
         rl.endDrawing();
     }

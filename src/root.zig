@@ -5,7 +5,6 @@ const rl = @import("raylib");
 pub const display = struct {
 	pub const widgets = @import("widgets.zig");
 	pub const scene = @import("scene.zig");
-	pub const config = @import("config.zig");
 };
 
 
