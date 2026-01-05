@@ -11,8 +11,8 @@ pub fn main() anyerror!void {
     //--------------------------------------------------------------------------------------
     const app_state = pz.app.AppState.getInstanceMut();
 
-    const screenWidth = app_state.display_config.width;
-    const screenHeight = app_state.display_config.height;
+    const screenWidth = app_state.display_config.resolution.width;
+    const screenHeight = app_state.display_config.resolution.height;
 
     rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
