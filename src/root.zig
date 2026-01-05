@@ -3,13 +3,12 @@ const std = @import("std");
 const rl = @import("raylib");
 
 pub const display = struct {
-	pub const widgets = @import("widgets.zig");
-	pub const scene = @import("scene.zig");
+    pub const widgets = @import("widgets.zig");
+    pub const scene = @import("scene.zig");
 };
 
-
 pub const app = struct {
-	pub const AppState = @import("app_state.zig").AppState;
+    pub const AppState = @import("app_state.zig").AppState;
     pub const sim = @import("game/sim.zig");
 };
 
@@ -61,3 +60,7 @@ pub const Callback = struct {
         };
     }
 };
+
+// String
+pub const U8String = @import("string.zig").U8String;
+pub const U8StringZ = @import("string.zig").U8StringZ;
