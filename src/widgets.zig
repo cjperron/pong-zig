@@ -2,7 +2,7 @@ const std = @import("std");
 const rl = @import("raylib");
 const Callback = @import("root.zig").Callback;
 pub const pong_bg_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
-
+const U8StringZ = @import("root.zig").U8StringZ;
 // ===== Widgets =====
 
 pub const Widget = union(enum) {
@@ -10,17 +10,19 @@ pub const Widget = union(enum) {
     underlined_text: UnderlinedText,
     button: Button,
     button_group: ButtonGroup,
+    _,
     // Agregar más widgets según sea necesario
+    const Self = @This();
 
-    pub fn initText(options: struct {
-        x: i32,
-        y: i32,
-        text: [:0]const u8,
+    pub fn initText(allocator: std.mem.Allocator, options: struct {
+        x: i32 = 0,
+        y: i32 = 0,
+        text: []const u8 = "Text",
         font_size: i32 = 20,
         color: rl.Color = rl.Color.white,
         on_update: ?Callback = null,
-    }) Widget {
-        return Widget{ .text = Text.init(.{
+    }) !Self {
+        return Self{ .text = try Text.init(allocator, .{
             .x = options.x,
             .y = options.y,
             .text = options.text,
@@ -30,35 +32,36 @@ pub const Widget = union(enum) {
         }) };
     }
 
-    pub fn initUnderlinedText(options: struct {
-        x: i32,
-        y: i32,
-        text: [:0]const u8,
+    pub fn initUnderlinedText(allocator: std.mem.Allocator, options: struct {
+        x: i32 = 0,
+        y: i32 = 0,
+        text: []const u8 = "Underlined Text",
         font_size: i32 = 20,
         color: rl.Color = rl.Color.white,
         on_update: ?Callback = null,
         underline_size: i32 = 5,
-    }) Widget {
-        return Widget{ .underlined_text = UnderlinedText.init(.{ .inner_text = Text.init(.{
+    }) !Self {
+        return Self{ .underlined_text = try UnderlinedText.init(allocator, .{
             .x = options.x,
             .y = options.y,
             .text = options.text,
             .font_size = options.font_size,
             .color = options.color,
             .on_update = options.on_update,
-        }), .underline_size = options.underline_size }) };
+            .underline_size = options.underline_size,
+        }) };
     }
 
-    pub fn initButton(options: struct {
-        label: [:0]const u8 = "Default label",
+    pub fn initButton(allocator: std.mem.Allocator, options: struct {
+        label: []const u8 = "Button",
         font_size: i32 = 20,
         color: rl.Color = .white,
-        bg_color: rl.Color = .black,
+        bg_color: rl.Color = pong_bg_color,
         x: i32 = 0,
         y: i32 = 0,
         on_click: ?Callback = null,
-    }) Widget {
-        return Widget{ .button = Button.init(.{
+    }) !Self {
+        return Self{ .button = try Button.init(allocator, .{
             .label = options.label,
             .font_size = options.font_size,
             .color = options.color,
@@ -74,12 +77,10 @@ pub const Widget = union(enum) {
         x: i32,
         y: i32,
         spacing: i32,
-        selected_index: usize = 0,
         orientation: Orientation = .Vertical,
-    }) Widget {
-        return Widget{ .button_group = ButtonGroup.init(.{
+    }) Self {
+        return Self{ .button_group = ButtonGroup.init(.{
             .buttons = options.buttons,
-            .selected_index = options.selected_index,
             .x = options.x,
             .y = options.y,
             .spacing = options.spacing,
@@ -87,28 +88,40 @@ pub const Widget = union(enum) {
         }) };
     }
 
-    pub fn draw(self: @This()) void {
-        switch (self) {
+    pub fn draw(self: *const Self) void {
+        switch (self.*) {
             .text => |t| t.draw(),
             .underlined_text => |ut| ut.draw(),
             .button => |b| b.draw(),
             .button_group => |ms| ms.draw(),
+            else => {
+            // This should only be reached if widget inner type does not have draw impl
+            // @compileLog("Warning: Widget type has no draw implementation", @TypeOf(self.*));
+            },
         }
     }
 
-    pub fn update(self: *@This()) void {
+    pub fn update(self: *Self) void {
         switch (self.*) {
             .text => |*t| t.update(),
             .underlined_text => |*ut| ut.update(),
             .button => |*b| b.update(),
             .button_group => |*ms| ms.update(),
+            else => {
+                // @compileLog("Warning: Widget type has no update implementation", @TypeOf(self.*));
+            },
         }
     }
 
-    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
         switch (self.*) {
             .button_group => |*ms| ms.deinit(allocator),
-            else => {},
+            .text => |*t| t.deinit(allocator),
+            .underlined_text => |*ut| ut.deinit(allocator),
+            .button => |*b| b.deinit(allocator),
+            else => {
+                // @compileLog("Warning: Widget type has no deinit implementation", @TypeOf(self.*));
+            },
         }
     }
 };
@@ -116,25 +129,26 @@ pub const Widget = union(enum) {
 pub const Text = struct {
     x: i32,
     y: i32,
-    text: [:0]const u8,
+    text: U8StringZ,
     font_size: i32,
     color: rl.Color,
     on_update: ?Callback,
 
     pub fn init(
+        allocator: std.mem.Allocator,
         options: struct {
             x: i32,
             y: i32,
-            text: [:0]const u8,
+            text: []const u8,
             font_size: i32 = 20,
             color: rl.Color = rl.Color.white,
             on_update: ?Callback = null,
         },
-    ) Text {
+    ) !Text {
         return Text{
             .x = options.x,
             .y = options.y,
-            .text = options.text,
+            .text = try U8StringZ.initFromSlice(allocator, options.text),
             .font_size = options.font_size,
             .color = options.color,
             .on_update = options.on_update,
@@ -148,7 +162,11 @@ pub const Text = struct {
     }
 
     pub fn draw(self: *const Text) void {
-        rl.drawText(self.text, self.x, self.y, self.font_size, self.color);
+        rl.drawText(self.text.toSlice(), self.x, self.y, self.font_size, self.color);
+    }
+
+    pub fn deinit(self: *Text, allocator: std.mem.Allocator) void {
+        self.text.deinit(allocator);
     }
 };
 
@@ -156,13 +174,31 @@ pub const UnderlinedText = struct {
     inner_text: Text,
     underline_size: i32,
 
-    pub fn init(options: struct { inner_text: Text, underline_size: i32 = 5 }) UnderlinedText {
-        return UnderlinedText{ .inner_text = options.inner_text, .underline_size = options.underline_size };
+    pub fn init(allocator: std.mem.Allocator, options: struct {
+        x: i32,
+        y: i32,
+        text: []const u8,
+        font_size: i32 = 20,
+        color: rl.Color = rl.Color.white,
+        on_update: ?Callback = null,
+        underline_size: i32 = 5,
+    }) !UnderlinedText {
+        return UnderlinedText{
+            .inner_text = try Text.init(allocator, .{
+                .x = options.x,
+                .y = options.y,
+                .text = options.text,
+                .font_size = options.font_size,
+                .color = options.color,
+                .on_update = options.on_update,
+            }),
+            .underline_size = options.underline_size,
+        };
     }
 
     pub fn draw(self: *const UnderlinedText) void {
         self.inner_text.draw();
-        const text_width = rl.measureText(self.inner_text.text, self.inner_text.font_size);
+        const text_width = rl.measureText(self.inner_text.text.toSlice(), self.inner_text.font_size);
         const offset = @max(2, @divTrunc(self.inner_text.font_size, 20));
         const line_y = self.inner_text.y + self.inner_text.font_size - @divTrunc(self.inner_text.font_size, 5) + offset;
         rl.drawRectangle(self.inner_text.x, line_y, text_width, self.underline_size, self.inner_text.color);
@@ -171,10 +207,14 @@ pub const UnderlinedText = struct {
     pub fn update(self: *UnderlinedText) void {
         self.inner_text.update();
     }
+
+    pub fn deinit(self: *UnderlinedText, allocator: std.mem.Allocator) void {
+        self.inner_text.deinit(allocator);
+    }
 };
 
 pub const Button = struct {
-    label: [:0]const u8,
+    label: U8StringZ,
     font_size: i32,
     color: rl.Color,
     bg_color: rl.Color,
@@ -187,8 +227,8 @@ pub const Button = struct {
 
     on_click: ?Callback,
 
-    pub fn init(options: struct {
-        label: [:0]const u8 = "Default label",
+    pub fn init(allocator: std.mem.Allocator, options: struct {
+        label: []const u8 = "Button",
         font_size: i32 = 20,
         color: rl.Color = .white,
         bg_color: rl.Color = pong_bg_color,
@@ -196,19 +236,23 @@ pub const Button = struct {
         x: i32 = 0,
         y: i32 = 0,
         on_click: ?Callback = null,
-    }) Button {
-        return Button{
-            .label = options.label,
+    }) !Button {
+        var button = Button{
+            .label = try U8StringZ.initFromSlice(allocator, options.label),
             .font_size = options.font_size,
             .color = options.color,
             .bg_color = options.bg_color,
             .highlight_color = options.hightlight_color,
             .x = options.x,
             .y = options.y,
-            .width = rl.measureText(options.label, options.font_size),
+            .width = undefined,
             .height = options.font_size,
             .on_click = options.on_click,
         };
+        errdefer button.label.deinit(allocator); // por las dudas...
+
+        button.width = rl.measureText(button.label.toSlice(), options.font_size);
+        return button;
     }
 
     pub fn isClicked(self: *const Button) bool {
@@ -232,13 +276,13 @@ pub const Button = struct {
     pub fn draw(self: *const Button) void {
         rl.drawRectangle(self.x, self.y, self.width, self.height, self.bg_color);
 
-        const textWidth = rl.measureText(self.label, self.font_size);
+        const textWidth = rl.measureText(self.label.toSlice(), self.font_size);
         const textX = self.x + @divTrunc((self.width - textWidth), 2);
         const textY = self.y + @divTrunc((self.height - self.font_size), 2);
 
-        rl.drawText(self.label, textX, textY, self.font_size, self.color);
+        rl.drawText(self.label.toSlice(), textX, textY, self.font_size, self.color);
         if (self.highlighted) {
-            const text_width = rl.measureText(self.label, self.font_size);
+            const text_width = rl.measureText(self.label.toSlice(), self.font_size);
             const offset = @max(2, @divTrunc(self.font_size, 20));
             const line_y = self.y + self.height + offset;
             const underline_size = @max(2, @divTrunc(self.font_size, 10));
@@ -270,6 +314,13 @@ pub const Button = struct {
     pub fn unhighlight(self: *Button) void {
         self.highlighted = false;
     }
+
+    pub fn deinit(self: *Button, allocator: std.mem.Allocator) void {
+        self.label.deinit(allocator);
+        if (self.on_click) |callback| {
+            callback.deinit();
+        }
+    }
 };
 
 pub const Orientation = enum {
@@ -279,7 +330,6 @@ pub const Orientation = enum {
 
 pub const ButtonGroup = struct {
     buttons: std.ArrayList(Button),
-    selected_index: usize,
     x: i32,
     y: i32,
     spacing: i32,
@@ -290,7 +340,6 @@ pub const ButtonGroup = struct {
         x: i32,
         y: i32,
         spacing: i32,
-        selected_index: usize = 0,
         orientation: Orientation = .Vertical,
     }) ButtonGroup {
         var current_y = options.y;
@@ -308,7 +357,6 @@ pub const ButtonGroup = struct {
 
         return ButtonGroup{
             .buttons = options.buttons,
-            .selected_index = options.selected_index,
             .x = options.x,
             .y = options.y,
             .spacing = options.spacing,
@@ -330,9 +378,7 @@ pub const ButtonGroup = struct {
 
     pub fn deinit(self: *ButtonGroup, allocator: std.mem.Allocator) void {
         for (self.buttons.items) |*button| {
-            if (button.on_click) |callback| {
-                callback.deinit();
-            }
+            button.deinit(allocator);
         }
         self.buttons.deinit(allocator);
     }

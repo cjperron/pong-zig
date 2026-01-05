@@ -81,7 +81,7 @@ pub const MainMenuScene = struct {
         const display_width = AppState.getInstance().display_config.width;
         // const display_height = AppState.getInstance().display_config.height;
         // ===== Widgets =====
-        const titulo = Widget.initUnderlinedText(.{
+        const titulo = try Widget.initUnderlinedText(allocator, .{
             .text = "PONG",
             .x = @divTrunc(display_width - rl.measureText("PONG", 120), 2),
             .y = 150,
@@ -102,7 +102,7 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const jugar_btn = Button.init(.{
+        const jugar_btn = try Button.init(allocator, .{
             .label = "Jugar",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -119,7 +119,7 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const options_btn = Button.init(.{
+        const options_btn = try Button.init(allocator, .{
             .label = "Opciones",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -136,7 +136,7 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const salir_btn = Button.init(.{
+        const salir_btn = try Button.init(allocator, .{
             .label = "Salir",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -147,7 +147,6 @@ pub const MainMenuScene = struct {
 
         const button_group_widget = Widget.initButtonGroup(.{
             .buttons = main_menu_buttons,
-            .selected_index = 0,
             .x = @divTrunc(display_width - 200, 2),
             .y = 400,
             .spacing = 20,
@@ -198,7 +197,7 @@ pub const OptionsScene = struct {
         // ===== Widgets =====
         //
         // Título
-        const options_text = Widget.initUnderlinedText(.{
+        const options_text = try Widget.initUnderlinedText(allocator, .{
             .text = "Opciones",
             .x = 20,
             .y = 20,
@@ -216,7 +215,7 @@ pub const OptionsScene = struct {
             }
         }{};
 
-        const resolution_button = Widget.initButton(.{
+        const resolution_button = try Widget.initButton(allocator, .{
             .label = "Resolucion:",
             .font_size = 30,
             .x = 100,
@@ -233,7 +232,7 @@ pub const OptionsScene = struct {
 
         errdefer scene.resolution_string.deinit(allocator);
 
-        const resolution_text = Widget.initText(.{
+        const resolution_text = try Widget.initText(allocator, .{
             .text = scene.resolution_string.toSlice(),
             .x = 300,
             .y = 150,
@@ -251,7 +250,7 @@ pub const OptionsScene = struct {
             }
         }{};
 
-        const back_button = Widget.initButton(.{
+        const back_button = try Widget.initButton(allocator, .{
             .label = "Volver",
             .font_size = 40,
             .bg_color = options.background_color,

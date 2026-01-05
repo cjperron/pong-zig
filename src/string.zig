@@ -60,7 +60,7 @@ pub const U8String = struct {
     /// Retorna:
     ///   - U8String inicializada con el contenido del slice
     ///   - Error si falla la asignación de memoria
-    pub fn fromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
+    pub fn initFromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
         var s = try Self.initWithCapacity(allocator, slice.len);
         try s.appendSlice(allocator, slice);
         return s;
@@ -394,7 +394,7 @@ pub const U8StringZ = struct {
     /// Retorna:
     ///   - U8StringZ inicializada con el contenido del slice más el terminador null
     ///   - Error si falla la asignación de memoria
-    pub fn fromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
+    pub fn initFromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
         var s = try Self.initWithCapacity(allocator, slice.len + 1);
         try s.appendSlice(allocator, slice);
         try s.appendSlice(allocator, &[_]u8{0});
@@ -480,7 +480,7 @@ pub const U8StringZ = struct {
         }
         try self.inner.appendSlice(allocator, slice);
         // Re-agregar el terminador null al final
-        try self.inner.appendSlice(allocator, 0);
+        try self.inner.appendSlice(allocator, &[_]u8{0});
     }
 
     /// Accede al byte en la posición especificada sin verificación de límites.
