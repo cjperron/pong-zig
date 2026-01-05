@@ -3,6 +3,8 @@ const rl = @import("raylib");
 const Widget = @import("widgets.zig").Widget;
 const Button = @import("widgets.zig").Button;
 const Callback = @import("root.zig").Callback;
+const U8StringZ = @import("root.zig").U8StringZ;
+
 const AppState = @import("app_state.zig").AppState;
 const pong_bg_color = @import("widgets.zig").pong_bg_color;
 
@@ -179,7 +181,9 @@ pub const MainMenuScene = struct {
 pub const OptionsScene = struct {
     widgets: std.ArrayList(Widget),
     background_color: rl.Color,
-    resolution_string_allocated: [:0]u8,  // Guardamos el slice allocado
+
+    // Textos mutables.
+    resolution_string: U8StringZ,
 
     pub fn init(allocator: std.mem.Allocator, options: struct {
         background_color: rl.Color = pong_bg_color,
@@ -187,7 +191,7 @@ pub const OptionsScene = struct {
         var scene = OptionsScene{
             .widgets = try std.ArrayList(Widget).initCapacity(allocator, 16),
             .background_color = options.background_color,
-            .resolution_string_allocated = undefined,
+            .resolution_string = undefined,
         };
         errdefer scene.widgets.deinit(allocator);
 
@@ -223,23 +227,14 @@ pub const OptionsScene = struct {
 
         try scene.widgets.append(allocator, resolution_button);
 
-        // Texto de resolución - ALLOCAR DINÁMICAMENTE
-        const resolution_str = try std.fmt.allocPrint(
-            allocator,
-            "{d}x{d}",
-            .{ rl.getScreenWidth(), rl.getScreenHeight() }
-        );
-        errdefer allocator.free(resolution_str);
+        const display_config = AppState.getInstance().display_config;
 
-        // Convertir a null-terminated con dupeZ
-        const resolution_str_z = try allocator.dupeZ(u8, resolution_str);
-        allocator.free(resolution_str); // Liberar el temporal
-        errdefer allocator.free(resolution_str_z);
+        scene.resolution_string = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.width, display_config.height });
 
-        scene.resolution_string_allocated = resolution_str_z;
+        errdefer scene.resolution_string.deinit(allocator);
 
         const resolution_text = Widget.initText(.{
-            .text = resolution_str_z,
+            .text = scene.resolution_string.toSlice(),
             .x = 300,
             .y = 150,
             .font_size = 30,
@@ -287,10 +282,9 @@ pub const OptionsScene = struct {
         }
         self.widgets.deinit(allocator);
         // Liberar la cadena allocada
-        allocator.free(self.resolution_string_allocated);
+        self.resolution_string.deinit(allocator);
     }
 };
-
 
 pub const GameplayScene = struct {
     pub fn init(allocator: std.mem.Allocator, options: struct {
