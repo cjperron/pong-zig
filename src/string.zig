@@ -62,6 +62,7 @@ pub const U8String = struct {
     ///   - Error si falla la asignación de memoria
     pub fn initFromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
         var s = try Self.initWithCapacity(allocator, slice.len);
+        errdefer s.deinit(allocator);
         try s.appendSlice(allocator, slice);
         return s;
     }
@@ -396,6 +397,7 @@ pub const U8StringZ = struct {
     ///   - Error si falla la asignación de memoria
     pub fn initFromSlice(allocator: std.mem.Allocator, slice: []const u8) !Self {
         var s = try Self.initWithCapacity(allocator, slice.len + 1);
+        errdefer s.deinit(allocator);
         try s.appendSlice(allocator, slice);
         try s.appendSlice(allocator, &[_]u8{0});
         return s;

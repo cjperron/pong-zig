@@ -3,6 +3,8 @@ const std = @import("std");
 const rl = @import("raylib");
 
 const AppState = @import("../app_state.zig").AppState;
+const available_resolutions = @import("../app_state.zig").available_resolutions;
+
 const Callback = @import("../root.zig").Callback;
 const U8StringZ = @import("../root.zig").U8StringZ;
 const Widget = @import("../widgets.zig").Widget;
@@ -13,41 +15,72 @@ pub const OptionsScene = struct {
     widgets: std.ArrayList(Widget),
     background_color: rl.Color,
 
-    // Textos mutables.
-    resolution_string: U8StringZ,
+    new_config: *AppState.Config, // Es una copia de la configuración actual, donde se aplican los cambios antes de confirmar. WARNING: dinamico en memoria
 
     pub fn init(allocator: std.mem.Allocator, options: struct {
         background_color: rl.Color = pong_bg_color,
     }) !OptionsScene {
+        var widgets = try std.ArrayList(Widget).initCapacity(allocator, 16);
+        errdefer widgets.deinit(allocator);
+
+        const new_config: *AppState.Config = try allocator.create(AppState.Config);
+        errdefer allocator.destroy(new_config);
+
+        new_config.* = AppState.getInstance().config; // Copio la configuración actual
+
         var scene = OptionsScene{
-            .widgets = try std.ArrayList(Widget).initCapacity(allocator, 16),
+            .widgets = widgets,
             .background_color = options.background_color,
-            .resolution_string = undefined,
+            .new_config = new_config,
         };
-        errdefer scene.widgets.deinit(allocator);
 
         // ===== Widgets =====
         //
         // Título
-        const options_text = try Widget.initUnderlinedText(allocator, .{
+        var options_text = try Widget.initUnderlinedText(allocator, .{
             .text = "Opciones",
             .x = 20,
             .y = 20,
             .font_size = 60,
         });
 
+        errdefer options_text.deinit(allocator);
+
         try scene.widgets.append(allocator, options_text);
+
+        // Texto de resolución actual
+        const display_config = AppState.getInstance().config.display_config;
+
+        var fmt_res = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.getResolution().width, display_config.getResolution().height });
+
+        var resolution_text = try Widget.initText(allocator, .{
+            .text = fmt_res.toSlice(),
+            .x = 300,
+            .y = 150,
+            .font_size = 30,
+        });
+
+        fmt_res.deinit(allocator);
+
+        errdefer resolution_text.deinit(allocator);
 
         // Boton de resolución
         const resolution_button_ctx = struct {
-            pub fn call(self: *const @This()) void {
-                _ = self;
-                // Aquí iría la lógica para cambiar la resolución
-                // CICLAR ENTRE VARIAS RESOLUCIONES PREDEFINIDAS
+            selected_resolution: *usize,
+            resolution_text: U8StringZ,
+            dummy_allocator: std.mem.Allocator,
+            pub fn call(self: *@This()) void {
+                self.selected_resolution.* = (self.selected_resolution.* + 1) % available_resolutions.len;
+                const res = available_resolutions[self.selected_resolution.*];
+                self.resolution_text.format(self.dummy_allocator, "{d} x {d}", .{ res.width, res.height }) catch unreachable; // si ya existe la string, no puede fallar
             }
-        }{};
+        }{
+            .selected_resolution = &scene.new_config.display_config.selected_resolution_index,
+            .dummy_allocator = allocator,
+            .resolution_text = resolution_text.text.text,
+        };
 
-        const resolution_button = try Widget.initButton(allocator, .{
+        var resolution_button = try Widget.initButton(allocator, .{
             .label = "Resolucion:",
             .font_size = 30,
             .x = 100,
@@ -56,25 +89,14 @@ pub const OptionsScene = struct {
             .on_click = try Callback.init(allocator, &resolution_button_ctx),
         });
 
+        errdefer resolution_button.deinit(allocator);
+
         try scene.widgets.append(allocator, resolution_button);
-
-        const display_config = AppState.getInstance().display_config;
-
-        scene.resolution_string = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.resolution.width, display_config.resolution.height });
-
-        errdefer scene.resolution_string.deinit(allocator);
-
-        const resolution_text = try Widget.initText(allocator, .{
-            .text = scene.resolution_string.toSlice(),
-            .x = 300,
-            .y = 150,
-            .font_size = 30,
-        });
 
         try scene.widgets.append(allocator, resolution_text);
 
         // Boton de Volver
-        const back_button_ctx = struct {
+        const volver_button_ctx = struct {
             pub fn call(self: *const @This()) void {
                 _ = self;
                 const app_state = AppState.getInstanceMut();
@@ -82,15 +104,42 @@ pub const OptionsScene = struct {
             }
         }{};
 
-        const back_button = try Widget.initButton(allocator, .{
+        var volver_button = try Widget.initButton(allocator, .{
             .label = "Volver",
             .font_size = 40,
             .bg_color = options.background_color,
             .x = 100,
-            .y = 400,
-            .on_click = try Callback.init(allocator, &back_button_ctx),
+            .y = rl.getScreenHeight() - 100,
+            .on_click = try Callback.init(allocator, &volver_button_ctx),
         });
-        try scene.widgets.append(allocator, back_button);
+
+        errdefer volver_button.deinit(allocator);
+
+        try scene.widgets.append(allocator, volver_button);
+
+        // Boton Aplicar
+
+        const aplicar_button_ctx = struct {
+            pub fn call(self: *const @This()) void {
+                _ = self;
+                const app_state = AppState.getInstanceMut();
+                _ = app_state;
+                // Aquí iría la lógica para aplicar los cambios de configuración
+            }
+        }{};
+
+        var aplicar_button = try Widget.initButton(allocator, .{
+            .label = "Aplicar",
+            .font_size = 40,
+            .bg_color = options.background_color,
+            .x = rl.getScreenWidth() - 250,
+            .y = rl.getScreenHeight() - 100,
+            .on_click = try Callback.init(allocator, &aplicar_button_ctx),
+        });
+
+        errdefer aplicar_button.deinit(allocator);
+
+        try scene.widgets.append(allocator, aplicar_button);
 
         return scene;
     }
@@ -112,7 +161,5 @@ pub const OptionsScene = struct {
             widget.deinit(allocator);
         }
         self.widgets.deinit(allocator);
-        // Liberar la cadena allocada
-        self.resolution_string.deinit(allocator);
     }
 };

@@ -22,21 +22,22 @@ pub const MainMenuScene = struct {
 
         errdefer scene.widgets.deinit(allocator);
 
-        const display_width = AppState.getInstance().display_config.resolution.width;
+        const display_width = AppState.getInstance().config.display_config.getResolution().width;
         // const display_height = AppState.getInstance().display_config.height;
         // ===== Widgets =====
-        const titulo = try Widget.initUnderlinedText(allocator, .{
+        var titulo = try Widget.initUnderlinedText(allocator, .{
             .text = "PONG",
             .x = @divTrunc(display_width - rl.measureText("PONG", 120), 2),
             .y = 150,
             .font_size = 120,
         });
-
+        errdefer titulo.deinit(allocator);
         try scene.widgets.append(allocator, titulo);
 
         var main_menu_buttons = try std.ArrayList(Button).initCapacity(allocator, 3);
         // Botones
         //
+        errdefer main_menu_buttons.deinit(allocator);
 
         const jugar_btn_ctx = struct {
             pub fn call(self: *const @This()) void {
@@ -46,13 +47,13 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const jugar_btn = try Button.init(allocator, .{
+        var jugar_btn = try Button.init(allocator, .{
             .label = "Jugar",
             .font_size = 40,
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &jugar_btn_ctx),
         });
-
+        errdefer jugar_btn.deinit(allocator);
         try main_menu_buttons.append(allocator, jugar_btn);
 
         const opciones_ctx = struct {
@@ -63,13 +64,13 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const options_btn = try Button.init(allocator, .{
+        var options_btn = try Button.init(allocator, .{
             .label = "Opciones",
             .font_size = 40,
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &opciones_ctx),
         });
-
+        errdefer options_btn.deinit(allocator);
         try main_menu_buttons.append(allocator, options_btn);
 
         const salir_ctx = struct {
@@ -80,13 +81,13 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        const salir_btn = try Button.init(allocator, .{
+        var salir_btn = try Button.init(allocator, .{
             .label = "Salir",
             .font_size = 40,
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &salir_ctx),
         });
-
+        errdefer salir_btn.deinit(allocator);
         try main_menu_buttons.append(allocator, salir_btn);
 
         const button_group_widget = Widget.initButtonGroup(.{

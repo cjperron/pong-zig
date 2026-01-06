@@ -11,8 +11,8 @@ pub fn main() anyerror!void {
     //--------------------------------------------------------------------------------------
     const app_state = pz.app.AppState.getInstanceMut();
 
-    const screenWidth = app_state.display_config.resolution.width;
-    const screenHeight = app_state.display_config.resolution.height;
+    const screenWidth = app_state.config.display_config.getResolution().width;
+    const screenHeight = app_state.config.display_config.getResolution().height;
 
     rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
@@ -27,12 +27,9 @@ pub fn main() anyerror!void {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-
     // Main game loop
     var current_scene = try pz.display.scene.Scene.init(alloc, .MainMenu, .{});
     defer current_scene.deinit(alloc);
-
-
 
     while (!rl.windowShouldClose() ^ app_state.should_exit) { // Cierro la ventana, o por raylib, o por mi.
         // Update
@@ -41,7 +38,7 @@ pub fn main() anyerror!void {
             current_scene.deinit(alloc);
             current_scene = try pz.display.scene.Scene.init(alloc, new_scene_tag, .{});
             app_state.current_scene = new_scene_tag;
-			app_state.requested_scene = null;
+            app_state.requested_scene = null;
         }
         // Draw
         rl.beginDrawing();

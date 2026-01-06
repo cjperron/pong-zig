@@ -7,10 +7,15 @@ pub const AppState = struct {
     should_exit: bool,
     current_scene: SceneTag,
     requested_scene: ?SceneTag,
-    display_config: DisplayConfig,
-    options: struct {
-        display_fps: bool,
+    config: struct {
+        display_config: DisplayConfig,
+        options: struct {
+            display_fps: bool,
+        },
     },
+    const Self = @This();
+    pub const Config = @TypeOf(@as(Self, undefined).config);
+
 
     pub fn getInstanceMut() *AppState {
         if (!is_initialized) {
@@ -25,15 +30,12 @@ pub const AppState = struct {
     }
 
     fn default() AppState {
-        return AppState{
-            .should_exit = false,
-            .current_scene = .MainMenu,
-            .requested_scene = null,
+        return AppState{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = .{
             .display_config = DisplayConfig.init(.{}),
             .options = .{
                 .display_fps = false,
             },
-        };
+        } };
     }
 
     fn load() !AppState {
@@ -66,22 +68,39 @@ pub const Resolution = struct {
     pub const res_3840x2160 = Resolution{ .width = 3840, .height = 2160 };
 };
 
+pub const available_resolutions = [_]Resolution{
+    Resolution.res_800x600,
+    Resolution.res_1024x768,
+    Resolution.res_1280x720,
+    Resolution.res_1366x768,
+    Resolution.res_1600x900,
+    Resolution.res_1920x1080,
+    Resolution.res_2560x1440,
+    Resolution.res_3840x2160,
+};
+
 pub const DisplayConfig = struct {
-    resolution: Resolution,
+    selected_resolution_index: usize,
     title: []const u8,
     background_color: rl.Color,
 
     const Self = @This();
 
-    pub fn init(options: struct {
-        resolution: Resolution = Resolution.res_1366x768,
-        title: []const u8 = "Pong Zig",
-        background_color: rl.Color = pong_bg_color,
-    }) Self {
+    pub fn init(
+        options: struct {
+            selected_resolution_index: usize = 3, // Default to 1366x768
+            title: []const u8 = "Pong Zig",
+            background_color: rl.Color = pong_bg_color,
+        },
+    ) Self {
         return Self{
-            .resolution = options.resolution,
             .title = options.title,
             .background_color = options.background_color,
+            .selected_resolution_index = options.selected_resolution_index,
         };
+    }
+
+    pub fn getResolution(self: *const Self) Resolution {
+        return available_resolutions[self.selected_resolution_index];
     }
 };
