@@ -126,23 +126,23 @@ pub const Widget = struct {
 
     pub fn initWidgetGroup(options: struct {
         widgets: std.ArrayList(Widget),
-        spacing: i32,
+        spacing: i32 = 5,
         orientation: Orientation = .Vertical,
-        layout_info: LayoutInfo,
+        layout_info: LayoutInfo = .{ .Absolute = .{} }, // def: (0,0)
     }) !Self {
         const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight());
         var widget = Self{
             .x = pos.x,
             .y = pos.y,
             .layout_info = options.layout_info,
-            .inner = .{ .button_group = try WidgetGroup.init(.{
+            .inner = .{ .widget_group = try WidgetGroup.init(.{
                 .buttons = options.widgets,
                 .spacing = options.spacing,
                 .orientation = options.orientation,
             }) },
         };
         // Posicionar botones inicialmente
-        widget.inner.button_group.repositionButtons(widget.x, widget.y);
+        widget.inner.widget_group.repositionButtons(widget.x, widget.y);
         return widget;
     }
 
@@ -166,8 +166,8 @@ pub const Widget = struct {
         self.y = pos.y;
 
         // Si es un ButtonGroup, también reposicionar sus botones internos
-        if (self.inner == .button_group) {
-            self.inner.button_group.repositionButtons(self.x, self.y);
+        if (self.inner == .widget_group) {
+            self.inner.widget_group.repositionButtons(self.x, self.y);
         }
     }
 };
@@ -176,7 +176,7 @@ pub const WidgetInner = union(enum) {
     text: Text,
     underlined_text: UnderlinedText,
     button: Button,
-    button_group: WidgetGroup,
+    widget_group: WidgetGroup,
     _,
 
     const Self = @This();
@@ -186,7 +186,7 @@ pub const WidgetInner = union(enum) {
             .text => |t| t.draw(x, y),
             .underlined_text => |ut| ut.draw(x, y),
             .button => |b| b.draw(x, y),
-            .button_group => |bg| bg.draw(x, y),
+            .widget_group => |bg| bg.draw(),
             else => {},
         }
     }
@@ -196,14 +196,14 @@ pub const WidgetInner = union(enum) {
             .text => |*t| t.update(),
             .underlined_text => |*ut| ut.update(),
             .button => |*b| b.update(x, y),
-            .button_group => |*bg| bg.update(x, y),
+            .widget_group => |*bg| bg.update(),
             else => {},
         }
     }
 
     pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .button_group => |*bg| bg.deinit(allocator),
+            .widget_group => |*bg| bg.deinit(allocator),
             .text => |*t| t.deinit(allocator),
             .underlined_text => |*ut| ut.deinit(allocator),
             .button => |*b| b.deinit(allocator),
@@ -399,7 +399,7 @@ pub const Orientation = enum {
 };
 
 pub const WidgetGroup = struct {
-    buttons: std.ArrayList(Widget),
+    widgets: std.ArrayList(Widget),
     spacing: i32,
     orientation: Orientation,
 
@@ -407,11 +407,11 @@ pub const WidgetGroup = struct {
 
     pub fn init(options: struct {
         buttons: std.ArrayList(Widget),
-        spacing: i32,
+        spacing: i32 = 5,
         orientation: Orientation = .Vertical,
     }) !Self {
         return Self{
-            .buttons = options.buttons,
+            .widgets = options.buttons,
             .spacing = options.spacing,
             .orientation = options.orientation,
         };
@@ -421,7 +421,7 @@ pub const WidgetGroup = struct {
         var current_y = base_y;
         var current_x = base_x;
 
-        for (self.buttons.items) |*widget| {
+        for (self.widgets.items) |*widget| {
             widget.x = current_x;
             widget.y = current_y;
 
@@ -442,26 +442,22 @@ pub const WidgetGroup = struct {
         }
     }
 
-    pub fn update(self: *Self, x: i32, y: i32) void {
-        _ = x;
-        _ = y;
-        for (self.buttons.items) |*widget| {
+    pub fn update(self: *Self) void {
+        for (self.widgets.items) |*widget| {
             widget.update();
         }
     }
 
-    pub fn draw(self: *const Self, x: i32, y: i32) void {
-        _ = x;
-        _ = y;
-        for (self.buttons.items) |*widget| {
+    pub fn draw(self: *const Self) void {
+        for (self.widgets.items) |*widget| {
             widget.draw();
         }
     }
 
     pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
-        for (self.buttons.items) |*widget| {
+        for (self.widgets.items) |*widget| {
             widget.deinit(allocator);
         }
-        self.buttons.deinit(allocator);
+        self.widgets.deinit(allocator);
     }
 };

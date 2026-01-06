@@ -48,23 +48,64 @@ pub const OptionsScene = struct {
 
         try scene.widgets.append(allocator, options_text);
 
-        // Texto de resolución actual
         const display_config = AppState.getInstance().config.display_config;
 
-        var fmt_res = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.getResolution().width, display_config.getResolution().height });
+        // =========================
+        // ==== Grupo de textos ====
+        // =========================
 
-        errdefer fmt_res.deinit(allocator);
-        defer fmt_res.deinit(allocator);
+        // Texto auxiliar para inicializacion
+        var aux_txt = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.getResolution().width, display_config.getResolution().height });
+        errdefer aux_txt.deinit(allocator);
+        defer aux_txt.deinit(allocator);
+
+        // Lista de Widgets de texto
+        var widget_texts = try std.ArrayList(Widget).initCapacity(allocator, 8);
+        errdefer widget_texts.deinit(allocator);
 
         var resolution_text = try Widget.initText(allocator, .{
-            .text = fmt_res.toSlice(),
-            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 300, .offset_y = 150 } },
+            .text = aux_txt.toSlice(),
+            .layout_info = .{
+                .Absolute = .{},
+            },
             .font_size = 30,
         });
 
+        try widget_texts.append(allocator, resolution_text);
+
         errdefer resolution_text.deinit(allocator);
 
-        // Boton de resolución
+        try aux_txt.format(allocator, "{s}", .{if (display_config.fullscreen) "Sí" else "No"});
+
+        var fullscreen_text = try Widget.initText(allocator, .{
+            .text = aux_txt.toSlice(),
+            .layout_info = .{
+                .Absolute = .{},
+            },
+            .font_size = 30,
+        });
+        errdefer fullscreen_text.deinit(allocator);
+        try widget_texts.append(allocator, fullscreen_text);
+
+        // Seguir agregando textos para TODAS las opciones...
+
+        // Finalmente, creo el grupo de textos
+        const widget_group_texts = try Widget.initWidgetGroup(.{
+            .widgets = widget_texts,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 400, .offset_y = 150 } },
+            .spacing = 35,
+        });
+
+        try scene.widgets.append(allocator, widget_group_texts);
+        // ============================
+        // ==== Grupos de Botones =====
+        // ============================
+
+        // Lista de Widgets de botones
+        var widget_buttons = try std.ArrayList(Widget).initCapacity(allocator, 8);
+        errdefer widget_buttons.deinit(allocator);
+
+        // Boton de Resolución
         const resolution_button_ctx = struct {
             selected_resolution: *usize,
             resolution_text: U8StringZ,
@@ -81,19 +122,54 @@ pub const OptionsScene = struct {
         };
 
         var resolution_button = try Widget.initButton(allocator, .{
-            .label = "Resolucion:",
+            .label = "Resolución:",
             .font_size = 30,
             .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 150 } },
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &resolution_button_ctx),
         });
-
         errdefer resolution_button.deinit(allocator);
+        try widget_buttons.append(allocator, resolution_button);
 
-        try scene.widgets.append(allocator, resolution_button);
+        const fullscreen_button_ctx = struct {
+            fullscreen_text: U8StringZ,
+            new_config: *AppState.Config,
+            dummy_allocator: std.mem.Allocator,
+            pub fn call(self: *@This()) void {
+                self.new_config.display_config.fullscreen = !self.new_config.display_config.fullscreen;
+                self.fullscreen_text.format(self.dummy_allocator, "{s}", .{if (self.new_config.display_config.fullscreen) "Sí" else "No"}) catch unreachable;
+            }
+        }{
+            .fullscreen_text = fullscreen_text.inner.text.text,
+            .new_config = scene.new_config,
+            .dummy_allocator = allocator,
+        };
 
-        try scene.widgets.append(allocator, resolution_text);
+        var fullscreen_button = try Widget.initButton(allocator, .{
+            .label = "Pantalla Completa:",
+            .font_size = 30,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 185 } },
+            .bg_color = options.background_color,
+            .on_click = try Callback.init(allocator, &fullscreen_button_ctx),
+        });
+        errdefer fullscreen_button.deinit(allocator);
+        try widget_buttons.append(allocator, fullscreen_button);
 
+
+        // Seguir agregando botones para TODAS las opciones...
+
+        // Finalmente, creo el grupo de botones
+        const widget_group_buttons = try Widget.initWidgetGroup(.{
+            .widgets = widget_buttons,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 150 } },
+            .spacing = 5,
+        });
+
+        try scene.widgets.append(allocator, widget_group_buttons);
+
+        // ============================
+        // ==== Botones Inferiores ====
+        // ============================
         // Boton de Volver
         const volver_button_ctx = struct {
             pub fn call(self: *const @This()) void {
@@ -122,6 +198,7 @@ pub const OptionsScene = struct {
             widgets: *std.ArrayList(Widget),
             pub fn call(self: *const @This()) void {
                 const app_state = AppState.getInstanceMut();
+                const toggle_fullscreen = app_state.config.display_config.fullscreen != self.new_config.display_config.fullscreen;
                 app_state.config = self.new_config.*;
                 app_state.save() catch {}; // Guardo la configuración (si falla, no hago nada)
 
@@ -137,6 +214,11 @@ pub const OptionsScene = struct {
                 for (self.widgets.items) |*widget| {
                     widget.reposition();
                 }
+
+                // Seteo fullscreen
+                if (toggle_fullscreen) {
+					rl.toggleFullscreen();
+				}
             }
         }{
             .new_config = scene.new_config,
