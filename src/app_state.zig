@@ -17,20 +17,20 @@ pub const AppState = struct {
     pub const Config = @TypeOf(@as(Self, undefined).config);
 
 
-    pub fn getInstanceMut() *AppState {
+    pub fn getInstanceMut() *Self {
         if (!is_initialized) {
-            instance = AppState.load() catch AppState.default();
+            instance = Self.load() catch Self.default();
             is_initialized = true;
         }
         return &instance;
     }
 
-    pub fn getInstance() *const AppState {
-        return &AppState.getInstanceMut().*; // "re-borrow"
+    pub fn getInstance() *const Self {
+        return &Self.getInstanceMut().*; // "re-borrow"
     }
 
-    fn default() AppState {
-        return AppState{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = .{
+    fn default() Self {
+        return Self{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = .{
             .display_config = DisplayConfig.init(.{}),
             .options = .{
                 .display_fps = false,
@@ -38,12 +38,12 @@ pub const AppState = struct {
         } };
     }
 
-    fn load() !AppState {
+    fn load() !Self {
         // Placeholder for loading configuration from a file or other source
-        return AppState.default();
+        return Self.default();
     }
 
-    pub fn save(self: *const AppState) !void {
+    pub fn save(self: *const Self) !void {
         // Placeholder for saving configuration to a file or other destination
         _ = self;
     }
@@ -83,6 +83,7 @@ pub const DisplayConfig = struct {
     selected_resolution_index: usize,
     title: []const u8,
     background_color: rl.Color,
+    fullscreen: bool,
 
     const Self = @This();
 
@@ -91,12 +92,14 @@ pub const DisplayConfig = struct {
             selected_resolution_index: usize = 3, // Default to 1366x768
             title: []const u8 = "Pong Zig",
             background_color: rl.Color = pong_bg_color,
+            fullscreen: bool = false,
         },
     ) Self {
         return Self{
             .title = options.title,
             .background_color = options.background_color,
             .selected_resolution_index = options.selected_resolution_index,
+            .fullscreen = options.fullscreen,
         };
     }
 

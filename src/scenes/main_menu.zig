@@ -22,21 +22,18 @@ pub const MainMenuScene = struct {
 
         errdefer scene.widgets.deinit(allocator);
 
-        const display_width = AppState.getInstance().config.display_config.getResolution().width;
-        // const display_height = AppState.getInstance().display_config.height;
         // ===== Widgets =====
         var titulo = try Widget.initUnderlinedText(allocator, .{
             .text = "PONG",
-            .x = @divTrunc(display_width - rl.measureText("PONG", 120), 2),
-            .y = 150,
+            .layout_info = .{ .Anchored = .{ .anchor = .Top, .offset_x = -120, .offset_y = 150 } },
             .font_size = 120,
         });
         errdefer titulo.deinit(allocator);
         try scene.widgets.append(allocator, titulo);
 
-        var main_menu_buttons = try std.ArrayList(Button).initCapacity(allocator, 3);
+        var main_menu_buttons = try std.ArrayList(Widget).initCapacity(allocator, 3);
+
         // Botones
-        //
         errdefer main_menu_buttons.deinit(allocator);
 
         const jugar_btn_ctx = struct {
@@ -47,8 +44,9 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        var jugar_btn = try Button.init(allocator, .{
+        var jugar_btn = try Widget.initButton(allocator, .{
             .label = "Jugar",
+            .layout_info = .{ .Absolute = .{} },
             .font_size = 40,
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &jugar_btn_ctx),
@@ -64,7 +62,8 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        var options_btn = try Button.init(allocator, .{
+        var options_btn = try Widget.initButton(allocator, .{
+            .layout_info = .{ .Absolute = .{} },
             .label = "Opciones",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -81,7 +80,8 @@ pub const MainMenuScene = struct {
             }
         }{};
 
-        var salir_btn = try Button.init(allocator, .{
+        var salir_btn = try Widget.initButton(allocator, .{
+            .layout_info = .{ .Absolute = .{} },
             .label = "Salir",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -90,10 +90,9 @@ pub const MainMenuScene = struct {
         errdefer salir_btn.deinit(allocator);
         try main_menu_buttons.append(allocator, salir_btn);
 
-        const button_group_widget = Widget.initButtonGroup(.{
-            .buttons = main_menu_buttons,
-            .x = @divTrunc(display_width - 200, 2),
-            .y = 400,
+        const button_group_widget = try Widget.initWidgetGroup(.{
+            .widgets = main_menu_buttons,
+            .layout_info = .{ .Anchored = .{ .anchor = .Center, .offset_x = -50, .offset_y = 0 } },
             .spacing = 20,
         });
 

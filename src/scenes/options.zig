@@ -4,7 +4,6 @@ const rl = @import("raylib");
 
 const AppState = @import("../app_state.zig").AppState;
 const available_resolutions = @import("../app_state.zig").available_resolutions;
-
 const Callback = @import("../root.zig").Callback;
 const U8StringZ = @import("../root.zig").U8StringZ;
 const Widget = @import("../widgets.zig").Widget;
@@ -12,7 +11,7 @@ const Button = @import("../widgets.zig").Button;
 const pong_bg_color = @import("../widgets.zig").pong_bg_color;
 
 pub const OptionsScene = struct {
-    widgets: std.ArrayList(Widget),
+    widgets: *std.ArrayList(Widget), // Ya que se va a actualizar la len del slice interno, tiene que ser una referencia, sino se copia la antigua len.
     background_color: rl.Color,
 
     new_config: *AppState.Config, // Es una copia de la configuración actual, donde se aplican los cambios antes de confirmar. WARNING: dinamico en memoria
@@ -20,7 +19,9 @@ pub const OptionsScene = struct {
     pub fn init(allocator: std.mem.Allocator, options: struct {
         background_color: rl.Color = pong_bg_color,
     }) !OptionsScene {
-        var widgets = try std.ArrayList(Widget).initCapacity(allocator, 16);
+        var widgets = try allocator.create(std.ArrayList(Widget));
+        errdefer allocator.destroy(widgets);
+        widgets.* = try std.ArrayList(Widget).initCapacity(allocator, 16);
         errdefer widgets.deinit(allocator);
 
         const new_config: *AppState.Config = try allocator.create(AppState.Config);
@@ -35,12 +36,11 @@ pub const OptionsScene = struct {
         };
 
         // ===== Widgets =====
-        //
+
         // Título
         var options_text = try Widget.initUnderlinedText(allocator, .{
             .text = "Opciones",
-            .x = 20,
-            .y = 20,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 20, .offset_y = 20 } },
             .font_size = 60,
         });
 
@@ -53,14 +53,14 @@ pub const OptionsScene = struct {
 
         var fmt_res = try U8StringZ.initFormat(allocator, "{d} x {d}", .{ display_config.getResolution().width, display_config.getResolution().height });
 
+        errdefer fmt_res.deinit(allocator);
+        defer fmt_res.deinit(allocator);
+
         var resolution_text = try Widget.initText(allocator, .{
             .text = fmt_res.toSlice(),
-            .x = 300,
-            .y = 150,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 300, .offset_y = 150 } },
             .font_size = 30,
         });
-
-        fmt_res.deinit(allocator);
 
         errdefer resolution_text.deinit(allocator);
 
@@ -77,14 +77,13 @@ pub const OptionsScene = struct {
         }{
             .selected_resolution = &scene.new_config.display_config.selected_resolution_index,
             .dummy_allocator = allocator,
-            .resolution_text = resolution_text.text.text,
+            .resolution_text = resolution_text.inner.text.text,
         };
 
         var resolution_button = try Widget.initButton(allocator, .{
             .label = "Resolucion:",
             .font_size = 30,
-            .x = 100,
-            .y = 150,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 150 } },
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &resolution_button_ctx),
         });
@@ -108,8 +107,7 @@ pub const OptionsScene = struct {
             .label = "Volver",
             .font_size = 40,
             .bg_color = options.background_color,
-            .x = 100,
-            .y = rl.getScreenHeight() - 100,
+            .layout_info = .{ .Anchored = .{ .anchor = .BottomLeft, .offset_x = 100, .offset_y = 100 } },
             .on_click = try Callback.init(allocator, &volver_button_ctx),
         });
 
@@ -120,20 +118,36 @@ pub const OptionsScene = struct {
         // Boton Aplicar
 
         const aplicar_button_ctx = struct {
+            new_config: *AppState.Config,
+            widgets: *std.ArrayList(Widget),
             pub fn call(self: *const @This()) void {
-                _ = self;
                 const app_state = AppState.getInstanceMut();
-                _ = app_state;
-                // Aquí iría la lógica para aplicar los cambios de configuración
+                app_state.config = self.new_config.*;
+                app_state.save() catch {}; // Guardo la configuración (si falla, no hago nada)
+
+                // Reconfigurar ventana
+                const res = app_state.config.display_config.getResolution();
+                rl.setWindowSize(res.width, res.height);
+                // Mover ventana al centro
+                const monitor = rl.getCurrentMonitor();
+                const monitor_width = rl.getMonitorWidth(monitor);
+                const monitor_height = rl.getMonitorHeight(monitor);
+                rl.setWindowPosition(@divFloor(monitor_width - res.width, 2), @divFloor(monitor_height - res.height, 2));
+
+                for (self.widgets.items) |*widget| {
+                    widget.reposition();
+                }
             }
-        }{};
+        }{
+            .new_config = scene.new_config,
+            .widgets = scene.widgets,
+        };
 
         var aplicar_button = try Widget.initButton(allocator, .{
             .label = "Aplicar",
             .font_size = 40,
             .bg_color = options.background_color,
-            .x = rl.getScreenWidth() - 250,
-            .y = rl.getScreenHeight() - 100,
+            .layout_info = .{ .Anchored = .{ .anchor = .BottomRight, .offset_x = 250, .offset_y = 100 } },
             .on_click = try Callback.init(allocator, &aplicar_button_ctx),
         });
 
@@ -161,5 +175,8 @@ pub const OptionsScene = struct {
             widget.deinit(allocator);
         }
         self.widgets.deinit(allocator);
+        allocator.destroy(self.widgets);
+
+        allocator.destroy(self.new_config);
     }
 };
