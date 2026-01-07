@@ -310,9 +310,9 @@ pub const OptionsScene = struct {
 
         var reset_button = try Widget.initButton(allocator, .{
             .label = "Restablecer Predeterminados",
-            .font_size = 26,
+            .font_size = 30,
             .bg_color = options.background_color,
-            .layout_info = .{ .Anchored = .{ .anchor = .TopRight, .offset_x = 400, .offset_y = 25 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .TopRight, .offset_x = rl.measureText("Restablecer Predeterminados", 30) + 20, .offset_y = 25 } },
             .on_click = try Callback.init(allocator, &reset_button_ctx),
         });
 
