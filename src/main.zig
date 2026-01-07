@@ -7,8 +7,15 @@ const Callback = pz.Callback;
 const rl = @import("raylib");
 
 pub fn main() anyerror!void {
-    // Initialization
-    //--------------------------------------------------------------------------------------
+
+    // ============================
+	// ====== Initialization ======
+    // ============================
+
+    // init allocator
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const app_state = pz.app.AppState.getInstanceMut();
 
     const screenWidth = app_state.config.display_config.getResolution().width;
@@ -20,15 +27,12 @@ pub fn main() anyerror!void {
     const display_refresh_rate = rl.getMonitorRefreshRate(rl.getCurrentMonitor());
 
     rl.setTargetFPS(display_refresh_rate); // Set our game to run at our monitor refresh rate
-    //--------------------------------------------------------------------------------------
 
-    // init allocator
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
+    // ===========================
+    // ===== Main game loop ======
+	// ===========================
 
-    // Main game loop
-    var current_scene = try pz.display.scene.Scene.init(alloc, .MainMenu, .{});
+	var current_scene = try pz.display.scene.Scene.init(alloc, .MainMenu, .{});
     defer current_scene.deinit(alloc);
 
     while (!rl.windowShouldClose() ^ app_state.should_exit) { // Cierro la ventana, o por raylib, o por mi.

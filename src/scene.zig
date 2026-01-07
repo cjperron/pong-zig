@@ -13,7 +13,6 @@ const GameplayScene = @import("scenes/gameplay.zig").GameplayScene;
 const AppState = @import("app_state.zig").AppState;
 const pong_bg_color = @import("widgets.zig").pong_bg_color;
 
-
 pub const SceneTag = enum {
     MainMenu,
     Options,
@@ -58,6 +57,14 @@ pub const Scene = union(SceneTag) {
             .MainMenu => |*scene| scene.draw(),
             .Options => |*scene| scene.draw(),
             .Gameplay => |*scene| scene.draw(),
+        }
+
+        // Show FPS:
+        if (AppState.getInstance().config.options.display_fps) {
+            var buf: [32]u8 = undefined;
+            const fps = rl.getFPS();
+            const fps_text = std.fmt.bufPrintZ(&buf, "FPS: {d}", .{fps}) catch "FPS: ??";
+            rl.drawText(fps_text, 10, 10, 20, .white);
         }
     }
 

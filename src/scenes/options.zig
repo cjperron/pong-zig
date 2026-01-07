@@ -87,6 +87,23 @@ pub const OptionsScene = struct {
         errdefer fullscreen_text.deinit(allocator);
         try widget_texts.append(allocator, fullscreen_text);
 
+
+        // Texto mostrar FPS
+
+        try aux_txt.format(allocator, "{s}", .{if (AppState.getInstance().config.options.display_fps) "Sí" else "No"});
+
+        var show_fps_text = try Widget.initText(allocator, .{
+			.text = aux_txt.toSlice(),
+			.layout_info = .{
+				.Absolute = .{},
+			},
+			.font_size = 30,
+		});
+
+        errdefer show_fps_text.deinit(allocator);
+
+        try widget_texts.append(allocator, show_fps_text);
+
         // Seguir agregando textos para TODAS las opciones...
 
         // Finalmente, creo el grupo de textos
@@ -158,6 +175,36 @@ pub const OptionsScene = struct {
 
         // Seguir agregando botones para TODAS las opciones...
 
+        // Boton Mostrar FPS
+
+        const show_fps_button_ctx = struct {
+			show_fps_text: U8StringZ,
+			new_config: *AppState.Config,
+			dummy_allocator: std.mem.Allocator,
+			pub fn call(self: *@This()) void {
+				self.new_config.options.display_fps = !self.new_config.options.display_fps;
+				self.show_fps_text.format(self.dummy_allocator, "{s}", .{if (self.new_config.options.display_fps) "Sí" else "No"}) catch unreachable;
+			}
+		}{
+			.show_fps_text = show_fps_text.inner.text.text,
+			.new_config = scene.new_config,
+			.dummy_allocator = allocator,
+		};
+
+		var show_fps_button = try Widget.initButton(allocator, .{
+			.label = "Mostrar FPS:",
+			.font_size = 30,
+			.layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 220 } },
+			.bg_color = options.background_color,
+			.on_click = try Callback.init(allocator, &show_fps_button_ctx),
+
+		});
+
+		errdefer show_fps_button.deinit(allocator);
+
+		try widget_buttons.append(allocator, show_fps_button);
+
+
         // Finalmente, creo el grupo de botones
         const widget_group_buttons = try Widget.initWidgetGroup(.{
             .widgets = widget_buttons,
@@ -200,7 +247,9 @@ pub const OptionsScene = struct {
                 const app_state = AppState.getInstanceMut();
                 const toggle_fullscreen = app_state.config.display_config.fullscreen != self.new_config.display_config.fullscreen;
                 app_state.config = self.new_config.*;
-                app_state.save() catch {}; // Guardo la configuración (si falla, no hago nada)
+                app_state.save() catch {
+                	std.debug.print("WARNING: could not save configuration to file.\n", .{});
+                }; // Guardo la configuración (si falla, no hago nada)
 
                 // Reconfigurar ventana
                 const res = app_state.config.display_config.getResolution();

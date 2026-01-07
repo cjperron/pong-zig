@@ -1,6 +1,10 @@
 const std = @import("std");
 const rl = @import("raylib");
 const SceneTag = @import("scene.zig").SceneTag;
+
+const deserialize = @import("serialization.zig").deserialize;
+const serialize = @import("serialization.zig").serialize;
+
 const pong_bg_color = @import("widgets.zig").pong_bg_color;
 
 pub const AppState = struct {
@@ -15,7 +19,6 @@ pub const AppState = struct {
     },
     const Self = @This();
     pub const Config = @TypeOf(@as(Self, undefined).config);
-
 
     pub fn getInstanceMut() *Self {
         if (!is_initialized) {
@@ -39,13 +42,38 @@ pub const AppState = struct {
     }
 
     fn load() !Self {
-        // Placeholder for loading configuration from a file or other source
-        return Self.default();
+        const file = std.fs.cwd().openFile("config.pz", .{}) catch { // Si no existe el archivo, defaulteamos.
+            const default_instance = Self.default();
+            // Si no existe, intentamos crearlo con los defaults
+            default_instance.save() catch {};
+            return default_instance;
+        };
+        defer file.close();
+
+        // Creamos el Io.Reader
+        var buf: [16 * 1024]u8 = undefined;
+        var fr = file.reader(&buf);
+        const r = &fr.interface;
+
+        // Leemos la config del archivo
+        var result = Self{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = undefined };
+        const temp_config = try deserialize(Config, r, std.heap.page_allocator);
+        result.config = temp_config;
+        return result;
     }
 
     pub fn save(self: *const Self) !void {
-        // Placeholder for saving configuration to a file or other destination
-        _ = self;
+        const file = try std.fs.cwd().createFile("config.pz", .{});
+        defer file.close();
+
+        // Creamos el Io.Writer
+        var buf: [16 * 1024]u8 = undefined;
+        var fw = file.writer(&buf);
+        const w = &fw.interface;
+
+        // Escribimos la config al archivo
+        try serialize(Config, w, self.config);
+        try w.flush();
     }
 };
 
