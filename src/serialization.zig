@@ -73,11 +73,67 @@ pub fn serialize(comptime T: type, w: *std.Io.Writer, value: T) !void {
 pub fn deserialize(
     comptime T: type,
     r: *std.Io.Reader,
-    allocator: ?std.mem.Allocator,
+    allocator: std.mem.Allocator,
 ) !T {
     const ti = @typeInfo(T);
     switch (ti) {
+        // Principal caso.
+        .@"struct" => |st| {
+            var out: T = undefined;
+            inline for (st.fields) |f| {
+                // A cada uno de los campos, le aplicamos deserialize recursivamente.
+                // f contiene toda la informacion de tipo del campo subyacente.
+                @field(out, f.name) = try deserialize(f.type, r, allocator);
+            }
+            return out;
+        },
 
+        .@"enum" => {
+            // Leemos el valor raw del enum y lo convertimos, segun el Tag que tenga (los enum pueden ser representados por multiples tipos integrales).
+            const Tag = ti.Enum.tag_type;
+            const raw = try readInt(r, Tag);
+            return @enumFromInt(raw);
+        },
+        // Complejos:
+
+        .optional => |opt| {
+            // Dependiendo de la tag (lo que dice si tiene algo o nada), leemos o no el valor.
+            const tag = try readByte(r);
+            if (tag == 0) return null;
+            if (tag == 1) {
+                const v = try deserialize(opt.child, r, allocator);
+                return v;
+            }
+            return error.UnsupportedType;
+        },
+
+        .pointer => |ptr| {
+            if (ptr.size != .slice) return error.UnsupportedType; // Solo soportamos slices. *T probablemente requiera allocation externa.
+
+            // Ya que es un slice, leemos el length primero.
+            const Child = ptr.child;
+            const len_u64 = try readInt(r, u64);
+            const len: usize = @intCast(len_u64);
+
+            // genial, ahora tenemos que n elementos de tipo Child.
+            if (Child == u8) {
+                // Rapidamente leemos n bytes directamente.
+                const buf = try allocator.alloc(u8, len);
+                errdefer allocator.free(buf);
+                try readExact(r, buf);
+                return buf;
+            } else {
+                // Leemos cada elemento individualmente.
+                const buf = try allocator.alloc(Child, len);
+                errdefer allocator.free(buf);
+                for (buf) |*slot| {
+                    slot.* = try deserialize(Child, r, allocator);
+                }
+                return buf;
+            }
+        },
+
+        // Triviales:
         .bool => {
             const b = try readByte(r);
             return switch (b) {
@@ -91,59 +147,12 @@ pub fn deserialize(
 
         .float => return try readFloat(r, T),
 
-        .@"enum" => {
-            const Tag = ti.Enum.tag_type;
-            const raw = try readInt(r, Tag);
-            return @enumFromInt(raw);
-        },
-
-        .optional => |opt| {
-            const tag = try readByte(r);
-            if (tag == 0) return null;
-            if (tag == 1) {
-                const v = try deserialize(opt.child, r, allocator);
-                return v;
-            }
-            return error.UnsupportedType;
-        },
-
         .array => |arr| {
+            // Trivial dado que deserializamos cada elemento en orden.
             var out: T = undefined;
             var i: usize = 0;
             while (i < arr.len) : (i += 1) {
                 out[i] = try deserialize(arr.child, r, allocator);
-            }
-            return out;
-        },
-
-        .pointer => |ptr| {
-            if (ptr.size != .slice) return error.UnsupportedType;
-            if (allocator == null) return error.OutOfMemory; // o definí tu propio error "NeedAllocator"
-
-            const Child = ptr.child;
-            const len_u64 = try readInt(r, u64);
-            const len: usize = @intCast(len_u64);
-
-            const a = allocator.?;
-            if (Child == u8) {
-                const buf = try a.alloc(u8, len);
-                errdefer a.free(buf);
-                try readExact(r, buf);
-                return buf;
-            } else {
-                const buf = try a.alloc(Child, len);
-                errdefer a.free(buf);
-                for (buf) |*slot| {
-                    slot.* = try deserialize(Child, r, allocator);
-                }
-                return buf;
-            }
-        },
-
-        .@"struct" => |st| {
-            var out: T = undefined;
-            inline for (st.fields) |f| {
-                @field(out, f.name) = try deserialize(f.type, r, allocator);
             }
             return out;
         },

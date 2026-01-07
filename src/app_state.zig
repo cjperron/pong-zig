@@ -22,7 +22,11 @@ pub const AppState = struct {
 
     pub fn getInstanceMut() *Self {
         if (!is_initialized) {
-            instance = Self.load() catch Self.default();
+            instance = Self.load() catch blk: {
+                const default_instance = Self.default();
+                default_instance.save() catch {};
+                break :blk default_instance;
+            };
             is_initialized = true;
         }
         return &instance;
@@ -34,7 +38,7 @@ pub const AppState = struct {
 
     fn default() Self {
         return Self{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = .{
-            .display_config = DisplayConfig.init(.{}),
+            .display_config = DisplayConfig.default(),
             .options = .{
                 .display_fps = false,
             },
@@ -117,7 +121,7 @@ pub const DisplayConfig = struct {
 
     pub fn init(
         options: struct {
-            selected_resolution_index: usize = 3, // Default to 1366x768
+            selected_resolution_index: usize = 0, // Default to 1366x768
             title: []const u8 = "Pong Zig",
             background_color: rl.Color = pong_bg_color,
             fullscreen: bool = false,
@@ -130,6 +134,10 @@ pub const DisplayConfig = struct {
             .fullscreen = options.fullscreen,
         };
     }
+
+    pub fn default() Self {
+		return Self.init(.{});
+	}
 
     pub fn getResolution(self: *const Self) Resolution {
         return available_resolutions[self.selected_resolution_index];
