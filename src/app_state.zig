@@ -36,7 +36,7 @@ pub const AppState = struct {
         return &Self.getInstanceMut().*; // "re-borrow"
     }
 
-    fn default() Self {
+    pub fn default() Self {
         return Self{ .should_exit = false, .current_scene = .MainMenu, .requested_scene = null, .config = .{
             .display_config = DisplayConfig.default(),
             .options = .{

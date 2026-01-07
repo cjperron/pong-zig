@@ -28,6 +28,9 @@ pub fn main() anyerror!void {
 
     rl.setTargetFPS(display_refresh_rate); // Set our game to run at our monitor refresh rate
 
+    if (app_state.config.display_config.fullscreen) {
+		rl.toggleFullscreen();
+	}
     // ===========================
     // ===== Main game loop ======
 	// ===========================

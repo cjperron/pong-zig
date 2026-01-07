@@ -14,7 +14,7 @@ pub const OptionsScene = struct {
     widgets: *std.ArrayList(Widget), // Ya que se va a actualizar la len del slice interno, tiene que ser una referencia, sino se copia la antigua len.
     background_color: rl.Color,
 
-    new_config: *AppState.Config, // Es una copia de la configuración actual, donde se aplican los cambios antes de confirmar. WARNING: dinamico en memoria
+    new_config: *AppState.Config, // Es una copia de la configuración actual, donde se aplican los cambios antes de confirmar. WARNING: viene de un alloc (.create()).
 
     pub fn init(allocator: std.mem.Allocator, options: struct {
         background_color: rl.Color = pong_bg_color,
@@ -69,6 +69,7 @@ pub const OptionsScene = struct {
                 .Absolute = .{},
             },
             .font_size = 30,
+            .default = "800 x 600",
         });
 
         try widget_texts.append(allocator, resolution_text);
@@ -83,22 +84,23 @@ pub const OptionsScene = struct {
                 .Absolute = .{},
             },
             .font_size = 30,
+            .default = "No",
         });
         errdefer fullscreen_text.deinit(allocator);
         try widget_texts.append(allocator, fullscreen_text);
-
 
         // Texto mostrar FPS
 
         try aux_txt.format(allocator, "{s}", .{if (AppState.getInstance().config.options.display_fps) "Sí" else "No"});
 
         var show_fps_text = try Widget.initText(allocator, .{
-			.text = aux_txt.toSlice(),
-			.layout_info = .{
-				.Absolute = .{},
-			},
-			.font_size = 30,
-		});
+            .text = aux_txt.toSlice(),
+            .layout_info = .{
+                .Absolute = .{},
+            },
+            .font_size = 30,
+            .default = "No",
+        });
 
         errdefer show_fps_text.deinit(allocator);
 
@@ -172,38 +174,35 @@ pub const OptionsScene = struct {
         errdefer fullscreen_button.deinit(allocator);
         try widget_buttons.append(allocator, fullscreen_button);
 
-
         // Seguir agregando botones para TODAS las opciones...
 
         // Boton Mostrar FPS
 
         const show_fps_button_ctx = struct {
-			show_fps_text: U8StringZ,
-			new_config: *AppState.Config,
-			dummy_allocator: std.mem.Allocator,
-			pub fn call(self: *@This()) void {
-				self.new_config.options.display_fps = !self.new_config.options.display_fps;
-				self.show_fps_text.format(self.dummy_allocator, "{s}", .{if (self.new_config.options.display_fps) "Sí" else "No"}) catch unreachable;
-			}
-		}{
-			.show_fps_text = show_fps_text.inner.text.text,
-			.new_config = scene.new_config,
-			.dummy_allocator = allocator,
-		};
+            show_fps_text: U8StringZ,
+            new_config: *AppState.Config,
+            dummy_allocator: std.mem.Allocator,
+            pub fn call(self: *@This()) void {
+                self.new_config.options.display_fps = !self.new_config.options.display_fps;
+                self.show_fps_text.format(self.dummy_allocator, "{s}", .{if (self.new_config.options.display_fps) "Sí" else "No"}) catch unreachable;
+            }
+        }{
+            .show_fps_text = show_fps_text.inner.text.text,
+            .new_config = scene.new_config,
+            .dummy_allocator = allocator,
+        };
 
-		var show_fps_button = try Widget.initButton(allocator, .{
-			.label = "Mostrar FPS:",
-			.font_size = 30,
-			.layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 220 } },
-			.bg_color = options.background_color,
-			.on_click = try Callback.init(allocator, &show_fps_button_ctx),
+        var show_fps_button = try Widget.initButton(allocator, .{
+            .label = "Mostrar FPS:",
+            .font_size = 30,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 100, .offset_y = 220 } },
+            .bg_color = options.background_color,
+            .on_click = try Callback.init(allocator, &show_fps_button_ctx),
+        });
 
-		});
+        errdefer show_fps_button.deinit(allocator);
 
-		errdefer show_fps_button.deinit(allocator);
-
-		try widget_buttons.append(allocator, show_fps_button);
-
+        try widget_buttons.append(allocator, show_fps_button);
 
         // Finalmente, creo el grupo de botones
         const widget_group_buttons = try Widget.initWidgetGroup(.{
@@ -215,7 +214,7 @@ pub const OptionsScene = struct {
         try scene.widgets.append(allocator, widget_group_buttons);
 
         // ============================
-        // ==== Botones Inferiores ====
+        // ===== Botones Sueltos ======
         // ============================
         // Boton de Volver
         const volver_button_ctx = struct {
@@ -248,7 +247,7 @@ pub const OptionsScene = struct {
                 const toggle_fullscreen = app_state.config.display_config.fullscreen != self.new_config.display_config.fullscreen;
                 app_state.config = self.new_config.*;
                 app_state.save() catch {
-                	std.debug.print("WARNING: could not save configuration to file.\n", .{});
+                    std.debug.print("WARNING: could not save configuration to file.\n", .{});
                 }; // Guardo la configuración (si falla, no hago nada)
 
                 // Reconfigurar ventana
@@ -266,8 +265,8 @@ pub const OptionsScene = struct {
 
                 // Seteo fullscreen
                 if (toggle_fullscreen) {
-					rl.toggleFullscreen();
-				}
+                    rl.toggleFullscreen();
+                }
             }
         }{
             .new_config = scene.new_config,
@@ -285,6 +284,40 @@ pub const OptionsScene = struct {
         errdefer aplicar_button.deinit(allocator);
 
         try scene.widgets.append(allocator, aplicar_button);
+
+        // Boton Restablecer Valores Predeterminados
+        // Este es el boton mas engorroso porque no se puede escapar de la duplicacion de codigo:
+        // de hacerlo, requeririamos que cada Widget tenga aparte implementada una funcion para actualizar su texto y que lo sobrescriba por el default.
+        const reset_button_ctx = struct {
+            new_config: *AppState.Config,
+            texts_to_reset: std.ArrayList(Widget),
+
+            dummy_allocator: std.mem.Allocator,
+            pub fn call(self: *@This()) void {
+                const default_config = AppState.default().config;
+                self.new_config.* = default_config;
+                // Defaulteo los textos
+                for (self.texts_to_reset.items) |*widget| {
+                    widget.inner.text.resetToDefault(self.dummy_allocator) catch unreachable;
+                }
+            }
+        }{
+            .new_config = scene.new_config,
+            // Seguir agregando textos a defaultear
+            .texts_to_reset = widget_texts,
+            .dummy_allocator = allocator,
+        };
+
+        var reset_button = try Widget.initButton(allocator, .{
+            .label = "Restablecer Predeterminados",
+            .font_size = 26,
+            .bg_color = options.background_color,
+            .layout_info = .{ .Anchored = .{ .anchor = .TopRight, .offset_x = 400, .offset_y = 25 } },
+            .on_click = try Callback.init(allocator, &reset_button_ctx),
+        });
+
+        errdefer reset_button.deinit(allocator);
+        try scene.widgets.append(allocator, reset_button);
 
         return scene;
     }

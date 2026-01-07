@@ -63,6 +63,7 @@ pub const Widget = struct {
         color: rl.Color = rl.Color.white,
         on_update: ?Callback = null,
         layout_info: LayoutInfo,
+        default: ?[]const u8 = null,
     }) !Self {
         const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight());
         return Self{
@@ -74,6 +75,7 @@ pub const Widget = struct {
                 .font_size = options.font_size,
                 .color = options.color,
                 .on_update = options.on_update,
+                .default = options.default,
             }) },
         };
     }
@@ -85,6 +87,7 @@ pub const Widget = struct {
         on_update: ?Callback = null,
         underline_size: i32 = 5,
         layout_info: LayoutInfo,
+        default: ?[]const u8 = null,
     }) !Self {
         const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight());
         return Self{
@@ -97,6 +100,7 @@ pub const Widget = struct {
                 .color = options.color,
                 .on_update = options.on_update,
                 .underline_size = options.underline_size,
+                .default = options.default,
             }) },
         };
     }
@@ -124,12 +128,14 @@ pub const Widget = struct {
         };
     }
 
-    pub fn initWidgetGroup(options: struct {
-        widgets: std.ArrayList(Widget),
-        spacing: i32 = 5,
-        orientation: Orientation = .Vertical,
-        layout_info: LayoutInfo = .{ .Absolute = .{} }, // def: (0,0)
-    }) !Self {
+    pub fn initWidgetGroup(
+        options: struct {
+            widgets: std.ArrayList(Widget),
+            spacing: i32 = 5,
+            orientation: Orientation = .Vertical,
+            layout_info: LayoutInfo = .{ .Absolute = .{} }, // def: (0,0)
+        },
+    ) !Self {
         const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight());
         var widget = Self{
             .x = pos.x,
@@ -217,7 +223,9 @@ pub const Text = struct {
     font_size: i32,
     color: rl.Color,
     on_update: ?Callback,
+    default: ?U8StringZ,
 
+    const Self = @This();
     pub fn init(
         allocator: std.mem.Allocator,
         options: struct {
@@ -225,28 +233,41 @@ pub const Text = struct {
             font_size: i32 = 20,
             color: rl.Color = rl.Color.white,
             on_update: ?Callback = null,
+            default: ?[]const u8 = null,
         },
-    ) !Text {
-        return Text{
+    ) !Self {
+        var aux = Self{
             .text = try U8StringZ.initFromSlice(allocator, options.text),
             .font_size = options.font_size,
             .color = options.color,
             .on_update = options.on_update,
+            .default = null,
         };
+        errdefer aux.text.deinit(allocator);
+        if (options.default) |default_text| {
+            aux.default = try U8StringZ.initFromSlice(allocator, default_text);
+        }
+        return aux;
     }
 
-    pub fn update(self: *Text) void {
+    pub fn update(self: *Self) void {
         if (self.on_update) |callback| {
             callback.call();
         }
     }
 
-    pub fn draw(self: *const Text, x: i32, y: i32) void {
+    pub fn draw(self: *const Self, x: i32, y: i32) void {
         rl.drawText(self.text.toSlice(), x, y, self.font_size, self.color);
     }
 
-    pub fn deinit(self: *Text, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
         self.text.deinit(allocator);
+    }
+
+    pub fn resetToDefault(self: *Self, allocator: std.mem.Allocator) !void {
+        if (self.default) |default_text| {
+            try self.text.format(allocator, "{s}", .{default_text.toSlice()});
+        }
     }
 };
 
@@ -260,6 +281,7 @@ pub const UnderlinedText = struct {
         color: rl.Color = rl.Color.white,
         on_update: ?Callback = null,
         underline_size: i32 = 5,
+        default: ?[]const u8 = null,
     }) !UnderlinedText {
         return UnderlinedText{
             .inner_text = try Text.init(allocator, .{
@@ -267,6 +289,7 @@ pub const UnderlinedText = struct {
                 .font_size = options.font_size,
                 .color = options.color,
                 .on_update = options.on_update,
+                .default = options.default,
             }),
             .underline_size = options.underline_size,
         };
@@ -286,6 +309,10 @@ pub const UnderlinedText = struct {
 
     pub fn deinit(self: *UnderlinedText, allocator: std.mem.Allocator) void {
         self.inner_text.deinit(allocator);
+    }
+
+    pub fn resetToDefault(self: *UnderlinedText, allocator: std.mem.Allocator) !void {
+        try self.inner_text.resetToDefault(allocator);
     }
 };
 
