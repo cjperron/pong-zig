@@ -2,7 +2,6 @@ const std = @import("std");
 
 const Widget = @import("../widget.zig").Widget;
 
-
 pub const Orientation = enum {
     Vertical,
     Horizontal,
@@ -37,11 +36,11 @@ pub const WidgetGroup = struct {
 
             // Obtener dimensiones del botón para calcular el siguiente offset
             const height = switch (widget.inner) {
-                .button => |b| b.height,
+                .button => |b| b.getHeight(),
                 else => 0,
             };
             const width = switch (widget.inner) {
-                .button => |b| b.width,
+                .button => |b| b.getWidth(),
                 else => 0,
             };
 
@@ -69,5 +68,54 @@ pub const WidgetGroup = struct {
             widget.deinit(allocator);
         }
         self.widgets.deinit(allocator);
+    }
+
+    pub fn calculateTotalWidth(self: *const Self) i32 {
+        if (self.widgets.items.len == 0) return 0;
+
+        return switch (self.orientation) {
+            .Horizontal => {
+                var total: i32 = 0;
+                for (self.widgets.items, 0..) |*widget, i| {
+                    total += widget.getWidth();
+                    if (i < self.widgets.items.len - 1) {
+                        total += self.spacing;
+                    }
+                }
+                return total;
+            },
+            .Vertical => {
+                var max_width: i32 = 0;
+                for (self.widgets.items) |*widget| {
+                    max_width = @max(max_width, widget.getWidth());
+                }
+                return max_width;
+            },
+        };
+    }
+
+    /// Calcula el alto total del grupo según su orientación
+    pub fn calculateTotalHeight(self: *const Self) i32 {
+        if (self.widgets.items.len == 0) return 0;
+
+        return switch (self.orientation) {
+            .Vertical => {
+                var total: i32 = 0;
+                for (self.widgets.items, 0..) |*widget, i| {
+                    total += widget.getHeight();
+                    if (i < self.widgets.items.len - 1) {
+                        total += self.spacing;
+                    }
+                }
+                return total;
+            },
+            .Horizontal => {
+                var max_height: i32 = 0;
+                for (self.widgets.items) |*widget| {
+                    max_height = @max(max_height, widget.getHeight());
+                }
+                return max_height;
+            },
+        };
     }
 };

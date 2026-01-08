@@ -25,7 +25,7 @@ pub const MainMenuScene = struct {
         // ===== Widgets =====
         var titulo = try Widget.initUnderlinedText(allocator, .{
             .text = "PONG",
-            .layout_info = .{ .Anchored = .{ .anchor = .Top, .offset_x = -150, .offset_y = 150 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .Top, .offset_y = 200 } },
             .font_size = 120,
         });
         errdefer titulo.deinit(allocator);
@@ -92,7 +92,7 @@ pub const MainMenuScene = struct {
 
         const button_group_widget = try Widget.initWidgetGroup(.{
             .widgets = main_menu_buttons,
-            .layout_info = .{ .Anchored = .{ .anchor = .Center, .offset_x = -75, .offset_y = 0 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .Center, .offset_x = 0, .offset_y = 150 } },
             .spacing = 20,
         });
 

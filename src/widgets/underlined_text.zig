@@ -47,4 +47,12 @@ pub const UnderlinedText = struct {
     pub fn resetToDefault(self: *UnderlinedText, allocator: std.mem.Allocator) !void {
         try self.inner_text.resetToDefault(allocator);
     }
+
+    pub fn getWidth(self: *const UnderlinedText) i32 {
+        return self.inner_text.getWidth();
+    }
+
+    pub fn getHeight(self: *const UnderlinedText) i32 {
+        return self.inner_text.font_size + self.underline_size + @max(2, @divTrunc(self.inner_text.font_size, 20));
+    }
 };

@@ -55,4 +55,12 @@ pub const Text = struct {
             try self.text.format(allocator, "{s}", .{default_text.toSlice()});
         }
     }
+
+    pub fn getWidth(self: *const Self) i32 {
+		return rl.measureText(self.text.toSlice(), self.font_size);
+	}
+
+	pub fn getHeight(self: *const Self) i32 {
+		return self.font_size;
+	}
 };

@@ -40,7 +40,7 @@ pub const OptionsScene = struct {
         // Título
         var options_text = try Widget.initUnderlinedText(allocator, .{
             .text = "Opciones",
-            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft, .offset_x = 20, .offset_y = 20 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .TopLeft , .offset_x = 20,.offset_y = 20} },
             .font_size = 60,
         });
 
@@ -229,7 +229,7 @@ pub const OptionsScene = struct {
             .label = "Volver",
             .font_size = 40,
             .bg_color = options.background_color,
-            .layout_info = .{ .Anchored = .{ .anchor = .BottomLeft, .offset_x = 100, .offset_y = 100 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .BottomLeft, .offset_x = 20, .offset_y = -30} },
             .on_click = try Callback.init(allocator, &volver_button_ctx),
         });
 
@@ -277,7 +277,7 @@ pub const OptionsScene = struct {
             .label = "Aplicar",
             .font_size = 40,
             .bg_color = options.background_color,
-            .layout_info = .{ .Anchored = .{ .anchor = .BottomRight, .offset_x = 250, .offset_y = 100 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .BottomRight, .offset_x = -20, .offset_y = -30} },
             .on_click = try Callback.init(allocator, &aplicar_button_ctx),
         });
 
@@ -303,7 +303,6 @@ pub const OptionsScene = struct {
             }
         }{
             .new_config = scene.new_config,
-            // Seguir agregando textos a defaultear
             .texts_to_reset = widget_texts,
             .dummy_allocator = allocator,
         };
@@ -312,7 +311,7 @@ pub const OptionsScene = struct {
             .label = "Restablecer Predeterminados",
             .font_size = 30,
             .bg_color = options.background_color,
-            .layout_info = .{ .Anchored = .{ .anchor = .TopRight, .offset_x = rl.measureText("Restablecer Predeterminados", 30) + 20, .offset_y = 25 } },
+            .layout_info = .{ .Anchored = .{ .anchor = .TopRight, .offset_x = -20, .offset_y = 20} },
             .on_click = try Callback.init(allocator, &reset_button_ctx),
         });
 
