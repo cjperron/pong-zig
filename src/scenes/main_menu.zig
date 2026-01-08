@@ -4,9 +4,9 @@ const rl = @import("raylib");
 
 const AppState = @import("../app_state.zig").AppState;
 const Callback = @import("../root.zig").Callback;
-const Widget = @import("../widgets.zig").Widget;
-const Button = @import("../widgets.zig").Button;
-const pong_bg_color = @import("../widgets.zig").pong_bg_color;
+const Widget = @import("../widget.zig").Widget;
+const Button = @import("../widget.zig").Button;
+const pong_bg_color = @import("../widget.zig").pong_bg_color;
 
 pub const MainMenuScene = struct {
     widgets: std.ArrayList(Widget),

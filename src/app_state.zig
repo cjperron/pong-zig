@@ -5,7 +5,7 @@ const SceneTag = @import("scene.zig").SceneTag;
 const deserialize = @import("serialization.zig").deserialize;
 const serialize = @import("serialization.zig").serialize;
 
-const pong_bg_color = @import("widgets.zig").pong_bg_color;
+const pong_bg_color = @import("widget.zig").pong_bg_color;
 
 pub const AppState = struct {
     should_exit: bool,

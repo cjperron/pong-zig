@@ -2,7 +2,7 @@ const std = @import("std");
 
 const rl = @import("raylib");
 
-const pong_bg_color = @import("../widgets.zig").pong_bg_color;
+const pong_bg_color = @import("../widget.zig").pong_bg_color;
 
 pub const GameplayScene = struct {
     pub fn init(allocator: std.mem.Allocator, options: struct {

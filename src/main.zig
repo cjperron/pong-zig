@@ -18,10 +18,9 @@ pub fn main() anyerror!void {
     const alloc = arena.allocator();
     const app_state = pz.app.AppState.getInstanceMut();
 
-    const screenWidth = app_state.config.display_config.getResolution().width;
-    const screenHeight = app_state.config.display_config.getResolution().height;
+    const screen_res = app_state.config.display_config.getResolution();
 
-    rl.initWindow(screenWidth, screenHeight, "Pong-Zig");
+    rl.initWindow(screen_res.width, screen_res.height, "Pong-Zig");
     defer rl.closeWindow(); // Close window and OpenGL context
 
     const display_refresh_rate = rl.getMonitorRefreshRate(rl.getCurrentMonitor());

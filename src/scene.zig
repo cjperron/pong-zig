@@ -1,7 +1,7 @@
 const std = @import("std");
 const rl = @import("raylib");
-const Widget = @import("widgets.zig").Widget;
-const Button = @import("widgets.zig").Button;
+const Widget = @import("widget.zig").Widget;
+const Button = @import("widget.zig").Button;
 const Callback = @import("root.zig").Callback;
 const U8StringZ = @import("root.zig").U8StringZ;
 
@@ -11,7 +11,7 @@ const GameplayScene = @import("scenes/gameplay.zig").GameplayScene;
 // Agregar más escenas según sea necesario
 
 const AppState = @import("app_state.zig").AppState;
-const pong_bg_color = @import("widgets.zig").pong_bg_color;
+const pong_bg_color = @import("widget.zig").pong_bg_color;
 
 pub const SceneTag = enum {
     MainMenu,

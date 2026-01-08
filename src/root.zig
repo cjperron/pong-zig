@@ -3,7 +3,7 @@ const std = @import("std");
 const rl = @import("raylib");
 
 pub const display = struct {
-    pub const widgets = @import("widgets.zig");
+    pub const widgets = @import("widget.zig");
     pub const scene = @import("scene.zig");
 };
 

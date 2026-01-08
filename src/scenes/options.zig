@@ -6,9 +6,9 @@ const AppState = @import("../app_state.zig").AppState;
 const available_resolutions = @import("../app_state.zig").available_resolutions;
 const Callback = @import("../root.zig").Callback;
 const U8StringZ = @import("../root.zig").U8StringZ;
-const Widget = @import("../widgets.zig").Widget;
-const Button = @import("../widgets.zig").Button;
-const pong_bg_color = @import("../widgets.zig").pong_bg_color;
+const Widget = @import("../widget.zig").Widget;
+const Button = @import("../widget.zig").Button;
+const pong_bg_color = @import("../widget.zig").pong_bg_color;
 
 pub const OptionsScene = struct {
     widgets: *std.ArrayList(Widget), // Ya que se va a actualizar la len del slice interno, tiene que ser una referencia, sino se copia la antigua len.
