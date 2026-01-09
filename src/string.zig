@@ -29,7 +29,7 @@ pub const U8String = struct {
     ///   - Error si falla la asignación de memoria
     pub fn init(allocator: std.mem.Allocator) !Self {
         return Self{
-            .inner = try std.ArrayList(u8).initCapacity(allocator, 16),
+            .inner = try std.ArrayList(u8).initCapacity(allocator, 32),
         };
     }
 
@@ -299,6 +299,21 @@ pub const U8String = struct {
     pub fn appendFormat(self: *Self, allocator: std.mem.Allocator, comptime fmt: []const u8, args: anytype) !void {
         try std.fmt.format(self.inner.writer(allocator), fmt, args);
     }
+
+    /// TODO
+    pub fn pop(self: *Self) ?u8 {
+        return self.inner.pop();
+    }
+
+    /// TODO
+    pub fn putAlloc(self: *Self, allocator: std.mem.Allocator, value: u8) !void {
+        try self.inner.append(allocator, value);
+    }
+
+    /// TODO
+    pub fn put(self: *Self, value: u8) !void {
+        try self.inner.appendBounded(value);
+    }
 };
 
 /// U8StringZ es una estructura que envuelve U8String y garantiza que la cadena
@@ -403,6 +418,7 @@ pub const U8StringZ = struct {
         return s;
     }
 
+
     /// Retorna la longitud de la cadena en bytes, excluyendo el terminador null.
     ///
     /// Parámetros:
@@ -411,7 +427,7 @@ pub const U8StringZ = struct {
     /// Retorna:
     ///   - Número de bytes en la cadena (sin contar el '\0')
     pub fn len(self: *const Self) usize {
-        if (self.inner.len() == 0) {
+        if (self.inner.len() == 0) { // caso empty init.
             return 0;
         }
         return self.inner.len() - 1; // Excluir el terminador null
@@ -625,6 +641,33 @@ pub const U8StringZ = struct {
         // Re-agregar el terminador null al final
         try self.inner.appendSlice(allocator, &[_]u8{0});
     }
+
+    /// TODO
+    pub fn pop(self: *Self) ?u8 {
+        if (self.inner.len() == 1) { // empty string in this case
+            return null;
+        }
+        const index = self.len() - 1;
+        const value = self.inner.at(index);
+        _ = self.inner.pop(); // remove null terminator
+        self.inner.atMut(index).* = 0; // re-add null terminator
+        return value;
+    }
+    /// TODO
+    pub fn putAlloc(self: *Self, allocator: std.mem.Allocator, value: u8) !void {
+        _ = try self.inner.pop(); // remove null terminator
+        try self.inner.putAlloc(allocator, value);
+        try self.inner.putAlloc(allocator, 0); // re-add null terminator
+    }
+    /// SAFETY: asume que siempre es una U8StringZ válida => len >= 1
+    pub fn put(self: *Self, value: u8) !void {
+        const index = self.len();
+        self.inner.atMut(index).* = value;
+        self.inner.put(0) catch |err| {
+            self.inner.atMut(index).* = 0;
+            return err;
+        };
+    }
 };
 
 test "U8String and U8StringZ functionality" {
@@ -714,4 +757,41 @@ test "U8StringZ format functionality" {
     // Verificar terminador null
     const slice2 = sz2.toSlice();
     try std.testing.expect(slice2[slice2.len] == 0);
+}
+
+test "U8StringZ pop and put functionality" {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var sz = try U8StringZ.init(alloc);
+    defer sz.deinit();
+
+    try sz.appendSlice(alloc, "ABC");
+
+    // Probar pop
+    const c3 = try sz.pop();
+    try std.testing.expect(c3 == 'C');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), "AB"));
+
+    const c2 = try sz.pop();
+    try std.testing.expect(c2 == 'B');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), "A"));
+
+    const c1 = try sz.pop();
+    try std.testing.expect(c1 == 'A');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), ""));
+
+    const c0 = try sz.pop();
+    try std.testing.expect(c0 == null); // empty string
+
+    // Probar put
+    try sz.put(alloc, 'X');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), "X"));
+
+    try sz.put(alloc, 'Y');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), "XY"));
+
+    try sz.put(alloc, 'Z');
+    try std.testing.expect(std.mem.eql(u8, sz.toSlice(), "XYZ"));
 }

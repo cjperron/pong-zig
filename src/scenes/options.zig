@@ -9,6 +9,7 @@ const U8StringZ = @import("../root.zig").U8StringZ;
 const Widget = @import("../widget.zig").Widget;
 const Button = @import("../widget.zig").Button;
 const pong_bg_color = @import("../widget.zig").pong_bg_color;
+const Location = @import("../location.zig").Location;
 
 pub const OptionsScene = struct {
     widgets: *std.ArrayList(Widget), // Ya que se va a actualizar la len del slice interno, tiene que ser una referencia, sino se copia la antigua len.
@@ -66,7 +67,7 @@ pub const OptionsScene = struct {
         var resolution_text = try Widget.initText(allocator, .{
             .text = aux_txt.toSlice(),
             .layout_info = .{
-                .Absolute = .{},
+                .Absolute = Location.zero(),
             },
             .font_size = 30,
             .default = "800 x 600",
@@ -81,7 +82,7 @@ pub const OptionsScene = struct {
         var fullscreen_text = try Widget.initText(allocator, .{
             .text = aux_txt.toSlice(),
             .layout_info = .{
-                .Absolute = .{},
+                .Absolute = Location.zero(),
             },
             .font_size = 30,
             .default = "No",
@@ -96,7 +97,7 @@ pub const OptionsScene = struct {
         var show_fps_text = try Widget.initText(allocator, .{
             .text = aux_txt.toSlice(),
             .layout_info = .{
-                .Absolute = .{},
+                .Absolute = Location.zero(),
             },
             .font_size = 30,
             .default = "No",
@@ -324,6 +325,11 @@ pub const OptionsScene = struct {
     pub fn update(self: *OptionsScene) void {
         for (self.widgets.items) |*widget| {
             widget.update();
+        }
+
+        if (rl.isKeyPressed(.escape)) {
+			const app_state = AppState.getInstanceMut();
+			app_state.requested_scene = .MainMenu;
         }
     }
 

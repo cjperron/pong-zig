@@ -7,6 +7,7 @@ const Callback = @import("../root.zig").Callback;
 const Widget = @import("../widget.zig").Widget;
 const Button = @import("../widget.zig").Button;
 const pong_bg_color = @import("../widget.zig").pong_bg_color;
+const Location = @import("../location.zig").Location;
 
 pub const MainMenuScene = struct {
     widgets: std.ArrayList(Widget),
@@ -46,7 +47,7 @@ pub const MainMenuScene = struct {
 
         var jugar_btn = try Widget.initButton(allocator, .{
             .label = "Jugar",
-            .layout_info = .{ .Absolute = .{} },
+            .layout_info = .{ .Absolute = Location.zero() },
             .font_size = 40,
             .bg_color = options.background_color,
             .on_click = try Callback.init(allocator, &jugar_btn_ctx),
@@ -63,7 +64,7 @@ pub const MainMenuScene = struct {
         }{};
 
         var options_btn = try Widget.initButton(allocator, .{
-            .layout_info = .{ .Absolute = .{} },
+            .layout_info = .{ .Absolute = Location.zero() },
             .label = "Opciones",
             .font_size = 40,
             .bg_color = options.background_color,
@@ -81,7 +82,7 @@ pub const MainMenuScene = struct {
         }{};
 
         var salir_btn = try Widget.initButton(allocator, .{
-            .layout_info = .{ .Absolute = .{} },
+            .layout_info = .{ .Absolute = Location.zero() },
             .label = "Salir",
             .font_size = 40,
             .bg_color = options.background_color,

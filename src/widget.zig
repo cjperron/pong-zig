@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const Callback = @import("root.zig").Callback;
 pub const pong_bg_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
 const U8StringZ = @import("root.zig").U8StringZ;
+const Location = @import("location.zig").Location;
 
 // Importar widgets individuales
 const Text = @import("widgets/text.zig").Text;
@@ -11,6 +12,8 @@ const Button = @import("widgets/button.zig").Button;
 
 const WidgetGroup = @import("widgets/widget_group.zig").WidgetGroup;
 const Orientation = @import("widgets/widget_group.zig").Orientation;
+
+const TextInput = @import("widgets/text_input.zig").TextInput;
 
 // ===== Layout  =====
 
@@ -27,10 +30,7 @@ pub const Anchor = enum {
 };
 
 pub const LayoutInfo = union(enum) {
-    Absolute: struct {
-        x: i32 = 0,
-        y: i32 = 0,
-    },
+    Absolute: Location,
     Anchored: struct {
         anchor: Anchor,
         offset_x: i32 = 0,
@@ -38,22 +38,22 @@ pub const LayoutInfo = union(enum) {
     },
 
     /// Calcula la posición considerando las dimensiones del widget
-    pub fn calculatePosition(self: LayoutInfo, screen_width: i32, screen_height: i32, widget_width: i32, widget_height: i32) struct { x: i32, y: i32 } {
+    pub fn calculatePosition(self: LayoutInfo, screen_width: i32, screen_height: i32, widget_width: i32, widget_height: i32) Location {
         switch (self) {
-            .Absolute => |abs| return .{ .x = abs.x, .y = abs.y },
+            .Absolute => |abs| return abs,
             .Anchored => |anchored| {
-                const base_pos : struct {x: i32, y:i32} = switch (anchored.anchor) {
-                    .TopLeft => .{ .x = 0, .y = 0 },
-                    .Top => .{ .x = @divFloor(screen_width, 2) - @divFloor(widget_width, 2), .y = 0 },
-                    .TopRight => .{ .x = screen_width - widget_width, .y = 0 },
-                    .Left => .{ .x = 0, .y = @divFloor(screen_height, 2) - @divFloor(widget_height, 2) },
-                    .Center => .{ .x = @divFloor(screen_width, 2) - @divFloor(widget_width, 2), .y = @divFloor(screen_height, 2) - @divFloor(widget_height, 2) },
-                    .Right => .{ .x = screen_width - widget_width, .y = @divFloor(screen_height, 2) - @divFloor(widget_height, 2) },
-                    .BottomLeft => .{ .x = 0, .y = screen_height - widget_height },
-                    .Bottom => .{ .x = @divFloor(screen_width, 2) - @divFloor(widget_width, 2), .y = screen_height - widget_height },
-                    .BottomRight => .{ .x = screen_width - widget_width, .y = screen_height - widget_height },
+                const base_pos = switch (anchored.anchor) {
+                    .TopLeft => Location.init(0, 0),
+                    .Top => Location.init(@divFloor(screen_width, 2) - @divFloor(widget_width, 2), 0),
+                    .TopRight => Location.init(screen_width - widget_width, 0),
+                    .Left => Location.init(0, @divFloor(screen_height, 2) - @divFloor(widget_height, 2)),
+                    .Center => Location.init(@divFloor(screen_width, 2) - @divFloor(widget_width, 2), @divFloor(screen_height, 2) - @divFloor(widget_height, 2)),
+                    .Right => Location.init(screen_width - widget_width, @divFloor(screen_height, 2) - @divFloor(widget_height, 2)),
+                    .BottomLeft => Location.init(0, screen_height - widget_height),
+                    .Bottom => Location.init(@divFloor(screen_width, 2) - @divFloor(widget_width, 2), screen_height - widget_height),
+                    .BottomRight => Location.init(screen_width - widget_width, screen_height - widget_height),
                 };
-                return .{ .x = base_pos.x + anchored.offset_x, .y = base_pos.y + anchored.offset_y };
+                return Location.init(base_pos.x() + anchored.offset_x, base_pos.y() + anchored.offset_y);
             },
         }
     }
@@ -62,8 +62,7 @@ pub const LayoutInfo = union(enum) {
 // ===== Widget =====
 
 pub const Widget = struct {
-    x: i32,
-    y: i32,
+    location: Location,
     layout_info: LayoutInfo,
     inner: WidgetInner,
 
@@ -78,8 +77,7 @@ pub const Widget = struct {
         default: ?[]const u8 = null,
     }) !Self {
         var wget = Self{
-            .x = undefined,
-            .y = undefined,
+            .location = undefined,
             .layout_info = options.layout_info,
             .inner = .{ .text = try Text.init(allocator, .{
                 .text = options.text,
@@ -89,9 +87,7 @@ pub const Widget = struct {
                 .default = options.default,
             }) },
         };
-        const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
-        wget.x = pos.x;
-        wget.y = pos.y;
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
         return wget;
     }
 
@@ -105,8 +101,7 @@ pub const Widget = struct {
         default: ?[]const u8 = null,
     }) !Self {
         var wget = Self{
-            .x = undefined,
-            .y = undefined,
+            .location = undefined,
             .layout_info = options.layout_info,
             .inner = .{ .underlined_text = try UnderlinedText.init(allocator, .{
                 .text = options.text,
@@ -117,9 +112,7 @@ pub const Widget = struct {
                 .default = options.default,
             }) },
         };
-        const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
-        wget.x = pos.x;
-        wget.y = pos.y;
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
         return wget;
     }
 
@@ -132,8 +125,7 @@ pub const Widget = struct {
         layout_info: LayoutInfo,
     }) !Self {
         var wget = Self{
-            .x = undefined,
-            .y = undefined,
+            .location = undefined,
             .layout_info = options.layout_info,
             .inner = .{ .button = try Button.init(allocator, .{
                 .label = options.label,
@@ -143,9 +135,7 @@ pub const Widget = struct {
                 .on_click = options.on_click,
             }) },
         };
-        const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
-        wget.x = pos.x;
-        wget.y = pos.y;
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
         return wget;
     }
 
@@ -154,12 +144,11 @@ pub const Widget = struct {
             widgets: std.ArrayList(Widget),
             spacing: i32 = 5,
             orientation: Orientation = .Vertical,
-            layout_info: LayoutInfo = .{ .Absolute = .{} }, // def: (0,0)
+            layout_info: LayoutInfo = .{ .Absolute = Location.zero() }, // def: (0,0)
         },
     ) !Self {
         var wget = Self{
-            .x = undefined,
-            .y = undefined,
+            .location = undefined,
             .layout_info = options.layout_info,
             .inner = .{ .widget_group = try WidgetGroup.init(.{
                 .buttons = options.widgets,
@@ -167,24 +156,41 @@ pub const Widget = struct {
                 .orientation = options.orientation,
             }) },
         };
-        const pos = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
-        wget.x = pos.x;
-        wget.y = pos.y;
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
         // Posicionar botones inicialmente
-        wget.inner.widget_group.repositionWidgets(wget.x, wget.y);
+        wget.inner.widget_group.repositionWidgets(wget.location);
+        return wget;
+    }
+
+    pub fn initTextInput(allocator: std.mem.Allocator, options: struct {
+        default_text: []const u8 = "",
+        font_size: i32 = 20,
+        color: rl.Color = .white,
+        char_limit: usize = 50,
+        layout_info: LayoutInfo,
+    }) !Self {
+        var wget = Self{
+            .location = undefined,
+            .layout_info = options.layout_info,
+            .inner = .{ .text_input = try TextInput.init(allocator, .{
+                .default_text = options.default_text,
+                .font_size = options.font_size,
+                .color = options.color,
+                .char_limit = options.char_limit,
+            }) },
+        };
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
         return wget;
     }
 
     pub fn reposition(self: *Self) void {
         const screen_width = rl.getScreenWidth();
         const screen_height = rl.getScreenHeight();
-        const pos = self.layout_info.calculatePosition(screen_width, screen_height, self.getWidth(), self.getHeight());
-        self.x = pos.x;
-        self.y = pos.y;
+        self.location = self.layout_info.calculatePosition(screen_width, screen_height, self.getWidth(), self.getHeight());
 
         // Si es un ButtonGroup, también reposicionar sus botones internos
         if (self.inner == .widget_group) {
-            self.inner.widget_group.repositionWidgets(self.x, self.y);
+            self.inner.widget_group.repositionWidgets(self.location);
         }
     }
 
@@ -197,11 +203,11 @@ pub const Widget = struct {
     }
 
     pub fn draw(self: *const Self) void {
-        self.inner.draw(self.x, self.y);
+        self.inner.draw(self.location);
     }
 
     pub fn update(self: *Self) void {
-        self.inner.update(self.x, self.y);
+        self.inner.update(self.location);
     }
 
     pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
@@ -214,26 +220,29 @@ pub const WidgetInner = union(enum) {
     underlined_text: UnderlinedText,
     button: Button,
     widget_group: WidgetGroup,
+    text_input: TextInput,
     _,
 
     const Self = @This();
 
-    pub fn draw(self: *const Self, x: i32, y: i32) void {
+    pub fn draw(self: *const Self, location: Location) void {
         switch (self.*) {
-            .text => |t| t.draw(x, y),
-            .underlined_text => |ut| ut.draw(x, y),
-            .button => |b| b.draw(x, y),
+            .text => |t| t.draw(location),
+            .underlined_text => |ut| ut.draw(location),
+            .button => |b| b.draw(location),
             .widget_group => |bg| bg.draw(),
+            .text_input => |ti| ti.draw(location),
             else => {},
         }
     }
 
-    pub fn update(self: *Self, x: i32, y: i32) void {
+    pub fn update(self: *Self, location: Location) void {
         switch (self.*) {
             .text => |*t| t.update(),
             .underlined_text => |*ut| ut.update(),
-            .button => |*b| b.update(x, y),
+            .button => |*b| b.update(location),
             .widget_group => |*bg| bg.update(),
+            .text_input => |*ti| ti.update(location),
             else => {},
         }
     }
@@ -244,6 +253,7 @@ pub const WidgetInner = union(enum) {
             .text => |*t| t.deinit(allocator),
             .underlined_text => |*ut| ut.deinit(allocator),
             .button => |*b| b.deinit(allocator),
+            .text_input => |*ti| ti.deinit(allocator),
             else => {},
         }
     }
@@ -254,6 +264,7 @@ pub const WidgetInner = union(enum) {
             .underlined_text => |ut| ut.getWidth(),
             .button => |b| b.getWidth(),
             .widget_group => |bg| bg.calculateTotalWidth(),
+            .text_input => |ti| ti.getWidth(),
             else => 0,
         };
     }
@@ -264,6 +275,7 @@ pub const WidgetInner = union(enum) {
             .underlined_text => |ut| ut.getHeight(),
             .button => |b| b.getHeight(),
             .widget_group => |bg| bg.calculateTotalHeight(),
+            .text_input => |ti| ti.getHeight(),
             else => 0,
         };
     }

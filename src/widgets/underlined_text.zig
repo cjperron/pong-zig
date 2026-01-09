@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const Text = @import("./text.zig").Text;
 const U8StringZ = @import("../string.zig").U8StringZ;
 const Callback = @import("../root.zig").Callback;
+const Location = @import("../location.zig").Location;
 
 pub const UnderlinedText = struct {
     inner_text: Text,
@@ -28,12 +29,12 @@ pub const UnderlinedText = struct {
         };
     }
 
-    pub fn draw(self: *const UnderlinedText, x: i32, y: i32) void {
-        self.inner_text.draw(x, y);
+    pub fn draw(self: *const UnderlinedText, location: Location) void {
+        self.inner_text.draw(location);
         const text_width = rl.measureText(self.inner_text.text.toSlice(), self.inner_text.font_size);
         const offset = @max(2, @divTrunc(self.inner_text.font_size, 20));
-        const line_y = y + self.inner_text.font_size - @divTrunc(self.inner_text.font_size, 5) + offset;
-        rl.drawRectangle(x, line_y, text_width, self.underline_size, self.inner_text.color);
+        const line_y = location.y() + self.inner_text.font_size - @divTrunc(self.inner_text.font_size, 5) + offset;
+        rl.drawRectangle(location.x(), line_y, text_width, self.underline_size, self.inner_text.color);
     }
 
     pub fn update(self: *UnderlinedText) void {

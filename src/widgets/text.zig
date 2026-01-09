@@ -3,6 +3,7 @@ const rl = @import("raylib");
 
 const U8StringZ = @import("../string.zig").U8StringZ;
 const Callback = @import("../root.zig").Callback;
+const Location = @import("../location.zig").Location;
 
 pub const Text = struct {
     text: U8StringZ,
@@ -42,8 +43,8 @@ pub const Text = struct {
         }
     }
 
-    pub fn draw(self: *const Self, x: i32, y: i32) void {
-        rl.drawText(self.text.toSlice(), x, y, self.font_size, self.color);
+    pub fn draw(self: *const Self, location: Location) void {
+        rl.drawText(self.text.toSlice(), location.x(), location.y(), self.font_size, self.color);
     }
 
     pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {

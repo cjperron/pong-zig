@@ -37,7 +37,7 @@ pub fn main() anyerror!void {
 	var current_scene = try pz.display.scene.Scene.init(alloc, .MainMenu, .{});
     defer current_scene.deinit(alloc);
 
-    while (!rl.windowShouldClose() ^ app_state.should_exit) { // Cierro la ventana, o por raylib, o por mi.
+    while (!app_state.should_exit) { // Cierro la ventana, o por raylib, o por mi.
         // Update
         current_scene.update();
         if (app_state.requested_scene) |new_scene_tag| {

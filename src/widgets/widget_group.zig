@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Widget = @import("../widget.zig").Widget;
+const Location = @import("../location.zig").Location;
 
 pub const Orientation = enum {
     Vertical,
@@ -26,13 +27,12 @@ pub const WidgetGroup = struct {
         };
     }
 
-    pub fn repositionWidgets(self: *Self, base_x: i32, base_y: i32) void {
-        var current_y = base_y;
-        var current_x = base_x;
+    pub fn repositionWidgets(self: *Self, base_location: Location) void {
+        var current_y = base_location.y();
+        var current_x = base_location.x();
 
         for (self.widgets.items) |*widget| {
-            widget.x = current_x;
-            widget.y = current_y;
+            widget.location = Location.init(current_x, current_y);
 
             // Obtener dimensiones del botón para calcular el siguiente offset
             const height = switch (widget.inner) {

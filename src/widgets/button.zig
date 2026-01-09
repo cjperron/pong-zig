@@ -3,6 +3,7 @@ const rl = @import("raylib");
 const U8StringZ = @import("../string.zig").U8StringZ;
 const Callback = @import("../root.zig").Callback;
 const pong_bg_color = @import("../widget.zig").pong_bg_color;
+const Location = @import("../location.zig").Location;
 
 
 pub const Button = struct {
@@ -33,48 +34,49 @@ pub const Button = struct {
         };
     }
 
-    pub fn isClicked(self: *const Button, x: i32, y: i32) bool {
+    pub fn isClicked(self: *const Button, location: Location) bool {
         const mouseX = rl.getMouseX();
         const mouseY = rl.getMouseY();
         const mousePressed = rl.isMouseButtonPressed(rl.MouseButton.left);
 
         return mousePressed and
-            (mouseX >= x) and (mouseX <= x + self.getWidth()) and
-            (mouseY >= y) and (mouseY <= y + self.getHeight());
+            (mouseX >= location.x()) and (mouseX <= location.x() + self.getWidth()) and
+            (mouseY >= location.y()) and (mouseY <= location.y() + self.getHeight());
     }
 
-    pub fn isHovered(self: *const Button, x: i32, y: i32) bool {
+    pub fn isHovered(self: *const Button, location: Location) bool {
         const mouseX = rl.getMouseX();
         const mouseY = rl.getMouseY();
 
-        return (mouseX >= x) and (mouseX <= x + self.getWidth()) and
-            (mouseY >= y) and (mouseY <= y + self.getHeight());
+        return (mouseX >= location.x()) and (mouseX <= location.x() + self.getWidth()) and
+            (mouseY >= location.y()) and (mouseY <= location.y() + self.getHeight());
     }
 
-    pub fn draw(self: *const Button, x: i32, y: i32) void {
-        rl.drawRectangle(x, y, self.getWidth(), self.getHeight(), self.bg_color);
+    pub fn draw(self: *const Button, location: Location) void {
+        rl.drawRectangle(location.x(), location.y(), self.getWidth(), self.getHeight(), self.bg_color);
 
         const textWidth = rl.measureText(self.label.toSlice(), self.font_size);
-        const textX = x + @divTrunc((self.getWidth() - textWidth), 2);
-        const textY = y + @divTrunc((self.getHeight() - self.font_size), 2);
+        const textX = location.x() + @divTrunc((self.getWidth() - textWidth), 2);
+        const textY = location.y() + @divTrunc((self.getHeight() - self.font_size), 2);
 
         rl.drawText(self.label.toSlice(), textX, textY, self.font_size, self.color);
         if (self.highlighted) {
             const text_width = rl.measureText(self.label.toSlice(), self.font_size);
             const offset = @max(2, @divTrunc(self.font_size, 20));
-            const line_y = y + self.getHeight() + offset;
+            const line_y = location.y() + self.getHeight() + offset;
             const underline_size = @max(2, @divTrunc(self.font_size, 10));
-            rl.drawRectangle(x, line_y, text_width, underline_size, self.highlight_color);
+            rl.drawRectangle(location.x(), line_y, text_width, underline_size, self.highlight_color);
         }
     }
 
-    pub fn update(self: *Button, x: i32, y: i32) void {
-        if (self.isClicked(x, y)) {
+
+    pub fn update(self: *Button, location: Location) void {
+        if (self.isClicked(location)) {
             if (self.on_click) |callback| {
                 callback.call();
             }
         }
-        if (self.isHovered(x, y)) {
+        if (self.isHovered(location)) {
             self.highlight();
         } else {
             self.unhighlight();
