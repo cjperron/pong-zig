@@ -1,8 +1,24 @@
 const std = @import("std");
-
+const U8String = @import("./string.zig").U8String;
+const U8StringZ = @import("./string.zig").U8StringZ;
 // ===== Generic Serializer and Deserializer =====
 
 pub fn serialize(comptime T: type, w: *std.Io.Writer, value: T) !void {
+    // Especializaciones
+
+    if (T == U8String) {
+        const s: U8String = value;
+        serialize([]const u8, w, s.toSlice());
+        return;
+    }
+
+    if (T == U8StringZ) {
+    	const s: U8StringZ = value;
+        serialize([]const u8, w,& s.toSlice()[0..s.len()]);
+        return;
+    }
+
+    // Generico para tipos compuestos.
     const ti = @typeInfo(T);
 
     switch (ti) {

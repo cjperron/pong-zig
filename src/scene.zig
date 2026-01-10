@@ -5,9 +5,10 @@ const Button = @import("widget.zig").Button;
 const Callback = @import("root.zig").Callback;
 const U8StringZ = @import("root.zig").U8StringZ;
 
-const MainMenuScene = @import("scenes/main_menu.zig").MainMenuScene;
-const OptionsScene = @import("scenes/options.zig").OptionsScene;
-const GameplayScene = @import("scenes/gameplay.zig").GameplayScene;
+const MainMenuScene = @import("scenes/MainMenuScene.zig");
+const OptionsScene = @import("scenes/OptionsScene.zig");
+const GameplaySetupScene = @import("scenes/GameplaySetupScene.zig");
+const PongScene = @import("scenes/PongScene.zig");
 // Agregar más escenas según sea necesario
 
 const AppState = @import("app_state.zig").AppState;
@@ -16,14 +17,16 @@ const pong_bg_color = @import("widget.zig").pong_bg_color;
 pub const SceneTag = enum {
     MainMenu,
     Options,
-    Gameplay,
+    GameplaySetup,
+    Pong,
     // Agregar más escenas según sea necesario
 };
 
 pub const Scene = union(SceneTag) {
     MainMenu: MainMenuScene,
     Options: OptionsScene,
-    Gameplay: GameplayScene,
+    GameplaySetup: GameplaySetupScene,
+    Pong: PongScene,
     // Agregar más escenas según sea necesario
 
     pub fn init(allocator: std.mem.Allocator, tag: SceneTag, options: struct {
@@ -36,7 +39,10 @@ pub const Scene = union(SceneTag) {
             .Options => .{ .Options = try OptionsScene.init(allocator, .{
                 .background_color = options.background_color,
             }) },
-            .Gameplay => .{ .Gameplay = try GameplayScene.init(allocator, .{
+            .GameplaySetup => .{ .GameplaySetup = try GameplaySetupScene.init(allocator, .{
+                .background_color = options.background_color,
+            }) },
+            .Pong => .{ .Pong = try PongScene.init(allocator, .{
                 .background_color = options.background_color,
             }) },
         };
@@ -48,7 +54,8 @@ pub const Scene = union(SceneTag) {
         return switch (self.*) {
             .MainMenu => |*scene| scene.update(),
             .Options => |*scene| scene.update(),
-            .Gameplay => |*scene| scene.update(),
+            .GameplaySetup => |*scene| scene.update(),
+            .Pong => |*scene| scene.update(),
         };
     }
 
@@ -56,7 +63,8 @@ pub const Scene = union(SceneTag) {
         switch (self.*) {
             .MainMenu => |*scene| scene.draw(),
             .Options => |*scene| scene.draw(),
-            .Gameplay => |*scene| scene.draw(),
+            .GameplaySetup => |*scene| scene.draw(),
+            .Pong => |*scene| scene.draw(),
         }
 
         // Show FPS:
@@ -72,7 +80,8 @@ pub const Scene = union(SceneTag) {
         switch (self.*) {
             .MainMenu => |*scene| scene.deinit(allocator),
             .Options => |*scene| scene.deinit(allocator),
-            .Gameplay => |*scene| scene.deinit(allocator),
+            .GameplaySetup => |*scene| scene.deinit(allocator),
+            .Pong => |*scene| scene.deinit(allocator),
         }
     }
 };

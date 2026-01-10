@@ -9,7 +9,6 @@ pub const display = struct {
 
 pub const app = struct {
     pub const AppState = @import("app_state.zig").AppState;
-    pub const sim = @import("game/sim.zig");
 };
 
 // ===== Closures genéricas =====

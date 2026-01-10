@@ -84,6 +84,8 @@ pub const AppState = struct {
 var instance: AppState = undefined;
 var is_initialized: bool = false;
 
+// ==== Helpers ====
+
 pub const Resolution = struct {
     width: i32,
     height: i32,

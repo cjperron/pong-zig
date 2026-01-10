@@ -3,17 +3,35 @@ const rl = @import("raylib");
 const Callback = @import("root.zig").Callback;
 pub const pong_bg_color = rl.Color{ .r = 20, .g = 20, .b = 30, .a = 255 }; // color a dedo
 const U8StringZ = @import("root.zig").U8StringZ;
-const Location = @import("location.zig").Location;
+const Location = @import("Location.zig");
 
 // Importar widgets individuales
-const Text = @import("widgets/text.zig").Text;
-const UnderlinedText = @import("widgets/underlined_text.zig").UnderlinedText;
-const Button = @import("widgets/button.zig").Button;
+const Text = @import("widgets/Text.zig");
+const UnderlinedText = @import("widgets/UnderlinedText.zig");
+const Button = @import("widgets/Button.zig");
+const WidgetGroup = @import("widgets/WidgetGroup.zig");
+const TextInput = @import("widgets/TextInput.zig");
 
-const WidgetGroup = @import("widgets/widget_group.zig").WidgetGroup;
-const Orientation = @import("widgets/widget_group.zig").Orientation;
+// Drawable only
+const Box = @import("widgets/Box.zig");
+const Line = @import("widgets/Line.zig");
+const Circle = @import("widgets/Circle.zig");
 
-const TextInput = @import("widgets/text_input.zig").TextInput;
+// Extra types
+const Orientation = @import("widgets/WidgetGroup.zig").Orientation;
+
+// Constantes
+
+// In screen coordinates: Up is -Y, Down is +Y
+pub const north = rl.Vector2{ .x = 0.0, .y = -1.0 };
+pub const east = rl.Vector2{ .x = 1.0, .y = 0.0 };
+pub const south = rl.Vector2{ .x = 0.0, .y = 1.0 };
+pub const west = rl.Vector2{ .x = -1.0, .y = 0.0 };
+
+pub const northeast = rl.Vector2{ .x = 1.0, .y = -1.0 };
+pub const northwest = rl.Vector2{ .x = -1.0, .y = -1.0 };
+pub const southeast = rl.Vector2{ .x = 1.0, .y = 1.0 };
+pub const southwest = rl.Vector2{ .x = -1.0, .y = 1.0 };
 
 // ===== Layout  =====
 
@@ -146,11 +164,11 @@ pub const Widget = struct {
             orientation: Orientation = .Vertical,
             layout_info: LayoutInfo = .{ .Absolute = Location.zero() }, // def: (0,0)
         },
-    ) !Self {
+    ) Self {
         var wget = Self{
             .location = undefined,
             .layout_info = options.layout_info,
-            .inner = .{ .widget_group = try WidgetGroup.init(.{
+            .inner = .{ .widget_group = .init(.{
                 .buttons = options.widgets,
                 .spacing = options.spacing,
                 .orientation = options.orientation,
@@ -172,11 +190,77 @@ pub const Widget = struct {
         var wget = Self{
             .location = undefined,
             .layout_info = options.layout_info,
-            .inner = .{ .text_input = try TextInput.init(allocator, .{
+            .inner = .{ .text_input = try .init(allocator, .{
                 .default_text = options.default_text,
                 .font_size = options.font_size,
                 .color = options.color,
                 .char_limit = options.char_limit,
+            }) },
+        };
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
+        return wget;
+    }
+
+    pub fn initBox(options: struct {
+        layout_info: LayoutInfo = .{ .Absolute = .init(0, 0) },
+        color: rl.Color = pong_bg_color,
+        width: i32 = 100,
+        height: i32 = 100,
+        fill: bool = false,
+    }) !Self {
+        var wget = Self{
+            .location = undefined,
+            .layout_info = options.layout_info,
+            .inner = .{ .box = try Box.init(.{
+                .color = options.color,
+                .width = options.width,
+                .height = options.height,
+                .fill = options.fill,
+            }) },
+        };
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
+        return wget;
+    }
+
+    pub fn initLine(
+        options: struct {
+            layout_info: LayoutInfo = .{ .Absolute = .init(0, 0) }, // start point
+            color: rl.Color = rl.Color.white,
+            thickness: i32 = 2,
+            length: f32 = 100.0,
+            direction: rl.Vector2 = rl.Vector2{ .x = 1.0, .y = 0.0 },
+        },
+    ) Self {
+        var wget = Self{
+            .location = undefined,
+            .layout_info = options.layout_info,
+            .inner = .{ .line = .init(.{
+                .color = options.color,
+                .thickness = options.thickness,
+                .length = options.length,
+                .direction = options.direction,
+            }) },
+        };
+        std.debug.assert(wget.getWidth() == 0 and wget.getHeight() == 0);
+        wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
+        return wget;
+    }
+
+    pub fn initCircle(
+        options: struct {
+            layout_info: LayoutInfo = .{ .Absolute = .init(0, 0) }, // center point
+            color: rl.Color = rl.Color.white,
+            radius: i32 = 50,
+            fill: bool = false,
+        },
+    ) Self {
+        var wget = Self{
+            .location = undefined,
+            .layout_info = options.layout_info,
+            .inner = .{ .circle = .init(.{
+                .color = options.color,
+                .radius = options.radius,
+                .fill = options.fill,
             }) },
         };
         wget.location = options.layout_info.calculatePosition(rl.getScreenWidth(), rl.getScreenHeight(), wget.getWidth(), wget.getHeight());
@@ -221,62 +305,93 @@ pub const WidgetInner = union(enum) {
     button: Button,
     widget_group: WidgetGroup,
     text_input: TextInput,
+    box: Box,
+    line: Line,
+    circle: Circle,
     _,
 
     const Self = @This();
 
     pub fn draw(self: *const Self, location: Location) void {
         switch (self.*) {
-            .text => |t| t.draw(location),
-            .underlined_text => |ut| ut.draw(location),
-            .button => |b| b.draw(location),
-            .widget_group => |bg| bg.draw(),
-            .text_input => |ti| ti.draw(location),
-            else => {},
+            inline else => |*impl| {
+                const ImplType = @TypeOf(impl.*);
+                if (ImplType != void and @hasDecl(ImplType, "draw")) {
+                    const drawFn = @field(ImplType, "draw");
+                    const params = @typeInfo(@TypeOf(drawFn)).@"fn".params;
+                    if (params.len == 2) {
+                        impl.draw(location);
+                    } else if (params.len == 1) {
+                        impl.draw();
+                    }
+                }
+            },
         }
     }
 
     pub fn update(self: *Self, location: Location) void {
         switch (self.*) {
-            .text => |*t| t.update(),
-            .underlined_text => |*ut| ut.update(),
-            .button => |*b| b.update(location),
-            .widget_group => |*bg| bg.update(),
-            .text_input => |*ti| ti.update(location),
-            else => {},
+            inline else => |*impl| {
+                const ImplType = @TypeOf(impl.*);
+                if (ImplType != void and @hasDecl(ImplType, "update")) {
+                    const updateFn = @field(ImplType, "update");
+                    const params = @typeInfo(@TypeOf(updateFn)).@"fn".params;
+                    if (params.len == 2) {
+                        impl.update(location);
+                    } else if (params.len == 1) {
+                        impl.update();
+                    }
+                }
+            },
         }
     }
 
     pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .widget_group => |*bg| bg.deinit(allocator),
-            .text => |*t| t.deinit(allocator),
-            .underlined_text => |*ut| ut.deinit(allocator),
-            .button => |*b| b.deinit(allocator),
-            .text_input => |*ti| ti.deinit(allocator),
-            else => {},
+            inline else => |*impl| {
+                const ImplType = @TypeOf(impl.*);
+                if (ImplType != void and @hasDecl(ImplType, "deinit")) {
+                    const deinitFn = @field(ImplType, "deinit");
+                    const params = @typeInfo(@TypeOf(deinitFn)).@"fn".params;
+                    if (params.len == 2) {
+                        impl.deinit(allocator);
+                    } else if (params.len == 1) {
+                        impl.deinit();
+                    }
+                }
+            },
         }
     }
 
     pub fn getWidth(self: *const Self) i32 {
-        return switch (self.*) {
-            .text => |t| t.getWidth(),
-            .underlined_text => |ut| ut.getWidth(),
-            .button => |b| b.getWidth(),
-            .widget_group => |bg| bg.calculateTotalWidth(),
-            .text_input => |ti| ti.getWidth(),
-            else => 0,
-        };
+        switch (self.*) {
+            inline else => |*impl| {
+                const ImplType = @TypeOf(impl.*);
+                if (ImplType != void) {
+                    if (@hasDecl(ImplType, "getWidth")) {
+                        return impl.getWidth();
+                    } else if (@hasDecl(ImplType, "calculateTotalWidth")) {
+                        return impl.calculateTotalWidth();
+                    }
+                }
+                return 0;
+            },
+        }
     }
 
     pub fn getHeight(self: *const Self) i32 {
-        return switch (self.*) {
-            .text => |t| t.getHeight(),
-            .underlined_text => |ut| ut.getHeight(),
-            .button => |b| b.getHeight(),
-            .widget_group => |bg| bg.calculateTotalHeight(),
-            .text_input => |ti| ti.getHeight(),
-            else => 0,
-        };
+        switch (self.*) {
+            inline else => |*impl| {
+                const ImplType = @TypeOf(impl.*);
+                if (ImplType != void) {
+                    if (@hasDecl(ImplType, "getHeight")) {
+                        return impl.getHeight();
+                    } else if (@hasDecl(ImplType, "calculateTotalHeight")) {
+                        return impl.calculateTotalHeight();
+                    }
+                }
+                return 0;
+            },
+        }
     }
 };

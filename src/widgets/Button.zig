@@ -1,0 +1,111 @@
+const std = @import("std");
+const rl = @import("raylib");
+const U8StringZ = @import("../string.zig").U8StringZ;
+const Callback = @import("../root.zig").Callback;
+const pong_bg_color = @import("../widget.zig").pong_bg_color;
+const Location = @import("../Location.zig");
+
+// Campos
+label: U8StringZ,
+font_size: i32,
+color: rl.Color,
+bg_color: rl.Color,
+highlight_color: rl.Color,
+highlighted: bool = false,
+
+on_click: ?Callback,
+
+const Self = @This();
+
+pub fn init(allocator: std.mem.Allocator, options: struct {
+    label: []const u8 = "Button",
+    font_size: i32 = 20,
+    color: rl.Color = .white,
+    bg_color: rl.Color = pong_bg_color,
+    hightlight_color: rl.Color = .white,
+    on_click: ?Callback = null,
+}) !Self {
+    return Self{
+        .label = try U8StringZ.initFromSlice(allocator, options.label),
+        .font_size = options.font_size,
+        .color = options.color,
+        .bg_color = options.bg_color,
+        .highlight_color = options.hightlight_color,
+        .on_click = options.on_click,
+    };
+}
+
+pub fn isClicked(self: *const Self, location: Location) bool {
+    const mouseX = rl.getMouseX();
+    const mouseY = rl.getMouseY();
+    const mousePressed = rl.isMouseButtonPressed(rl.MouseButton.left);
+
+    return mousePressed and
+        (mouseX >= location.x()) and (mouseX <= location.x() + self.getWidth()) and
+        (mouseY >= location.y()) and (mouseY <= location.y() + self.getHeight());
+}
+
+pub fn isHovered(self: *const Self, location: Location) bool {
+    const mouseX = rl.getMouseX();
+    const mouseY = rl.getMouseY();
+
+    return (mouseX >= location.x()) and (mouseX <= location.x() + self.getWidth()) and
+        (mouseY >= location.y()) and (mouseY <= location.y() + self.getHeight());
+}
+
+pub fn draw(self: *const Self, location: Location) void {
+    rl.drawRectangle(location.x(), location.y(), self.getWidth(), self.getHeight(), self.bg_color);
+
+    const textWidth = rl.measureText(self.label.toSlice(), self.font_size);
+    const textX = location.x() + @divTrunc((self.getWidth() - textWidth), 2);
+    const textY = location.y() + @divTrunc((self.getHeight() - self.font_size), 2);
+
+    rl.drawText(self.label.toSlice(), textX, textY, self.font_size, self.color);
+    if (self.highlighted) {
+        const text_width = rl.measureText(self.label.toSlice(), self.font_size);
+        const offset = @max(2, @divTrunc(self.font_size, 20));
+        const line_y = location.y() + self.getHeight() + offset;
+        const underline_size = @max(2, @divTrunc(self.font_size, 10));
+        rl.drawRectangle(location.x(), line_y, text_width, underline_size, self.highlight_color);
+    }
+}
+
+pub fn update(self: *Self, location: Location) void {
+    if (self.isClicked(location)) {
+        if (self.on_click) |callback| {
+            callback.call();
+        }
+    }
+    if (self.isHovered(location)) {
+        self.highlight();
+    } else {
+        self.unhighlight();
+    }
+}
+
+pub fn toggleHighlight(self: *Self) void {
+    self.highlighted = !self.highlighted;
+}
+
+pub fn highlight(self: *Self) void {
+    self.highlighted = true;
+}
+
+pub fn unhighlight(self: *Self) void {
+    self.highlighted = false;
+}
+
+pub fn deinit(self: *Self, allocator: std.mem.Allocator) void {
+    self.label.deinit(allocator);
+    if (self.on_click) |callback| {
+        callback.deinit();
+    }
+}
+
+pub fn getWidth(self: *const Self) i32 {
+    return rl.measureText(self.label.toSlice(), self.font_size);
+}
+
+pub fn getHeight(self: *const Self) i32 {
+    return self.font_size;
+}
